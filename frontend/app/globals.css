@@ -1,0 +1,186 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 29% 97%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 173 80% 28%;
+    --primary-strong: 175 77% 22%;
+    --primary-foreground: 0 0% 100%;
+    --primary-soft: 166 76% 92%;
+    --secondary: 210 24% 93%;
+    --secondary-foreground: 215 28% 17%;
+    --muted: 210 24% 94%;
+    --muted-foreground: 215 16% 42%;
+    --accent: 190 70% 92%;
+    --accent-foreground: 192 78% 24%;
+    --destructive: 0 72% 51%;
+    --destructive-strong: 0 74% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --danger-soft: 0 86% 96%;
+    --danger-border: 0 76% 88%;
+    --danger-foreground: 0 63% 31%;
+    --success: 160 84% 32%;
+    --success-strong: 161 94% 24%;
+    --success-soft: 152 76% 95%;
+    --success-border: 152 60% 82%;
+    --success-foreground: 161 94% 24%;
+    --info: 192 91% 36%;
+    --info-strong: 193 82% 31%;
+    --neutral-action: 215 25% 35%;
+    --neutral-action-strong: 215 28% 25%;
+    --border: 210 22% 86%;
+    --input: 210 22% 82%;
+    --ring: 173 80% 28%;
+    --radius: 0.625rem;
+  }
+
+  .dark {
+    --background: 204 35% 7%;
+    --foreground: 210 29% 93%;
+    --card: 204 36% 10%;
+    --card-foreground: 210 29% 93%;
+    --popover: 204 36% 10%;
+    --popover-foreground: 210 29% 93%;
+    --primary: 172 66% 50%;
+    --primary-strong: 173 80% 40%;
+    --primary-foreground: 176 72% 10%;
+    --primary-soft: 174 45% 16%;
+    --secondary: 204 35% 14%;
+    --secondary-foreground: 210 29% 93%;
+    --muted: 204 35% 14%;
+    --muted-foreground: 207 14% 66%;
+    --accent: 192 45% 17%;
+    --accent-foreground: 187 86% 72%;
+    --destructive: 0 63% 48%;
+    --destructive-strong: 0 72% 40%;
+    --destructive-foreground: 0 0% 100%;
+    --danger-soft: 0 45% 16%;
+    --danger-border: 0 44% 29%;
+    --danger-foreground: 0 91% 80%;
+    --success: 160 72% 38%;
+    --success-strong: 161 78% 30%;
+    --success-soft: 159 44% 14%;
+    --success-border: 159 41% 27%;
+    --success-foreground: 152 69% 70%;
+    --info: 192 84% 44%;
+    --info-strong: 193 81% 36%;
+    --neutral-action: 212 20% 38%;
+    --neutral-action-strong: 212 24% 30%;
+    --border: 204 28% 21%;
+    --input: 204 28% 25%;
+    --ring: 172 66% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply min-h-screen bg-background text-foreground antialiased;
+    background-image: radial-gradient(circle at top right, hsl(var(--primary) / 0.05), transparent 32rem);
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.22);
+  }
+
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    @apply transition-colors duration-200;
+  }
+
+  input,
+  textarea,
+  select {
+    @apply bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary;
+  }
+}
+
+@layer utilities {
+  .dark input,
+  .dark textarea,
+  .dark select {
+    background-color: hsl(var(--card));
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--input));
+  }
+
+  .dark .bg-white {
+    background-color: hsl(var(--card));
+  }
+
+  .dark .text-gray-200 {
+    color: hsl(var(--foreground) / 0.82);
+  }
+
+  .dark .text-gray-600 {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .dark .text-gray-700 {
+    color: hsl(var(--foreground) / 0.88);
+  }
+
+  .dark .text-green-700,
+  .dark .text-green-800 {
+    color: hsl(var(--success-foreground));
+  }
+
+  .dark .text-red-600,
+  .dark .text-red-700,
+  .dark .text-red-800 {
+    color: hsl(var(--danger-foreground));
+  }
+
+  .dark .text-blue-100 {
+    color: hsl(var(--primary) / 0.72);
+  }
+
+  .dark .shadow,
+  .dark .shadow-sm,
+  .dark .shadow-md,
+  .dark .shadow-lg,
+  .dark .shadow-xl {
+    --tw-shadow-color: rgb(0 0 0 / 0.42);
+  }
+}
+
+@layer components {
+  .react-flow__controls {
+    @apply overflow-hidden rounded-md border border-border shadow-lg;
+  }
+
+  .react-flow__controls-button {
+    @apply border-border bg-card fill-foreground text-foreground;
+  }
+
+  .react-flow__controls-button:hover {
+    @apply bg-muted;
+  }
+
+  .react-flow__minimap {
+    @apply rounded-md border border-border bg-card shadow-lg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

@@ -1,0 +1,34 @@
+# Environment and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.key
+
+# Dependencies and builds
+node_modules/
+.next/
+dist/
+build/
+coverage/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Generated content and caches
+generated-projects/
+*.tsbuildinfo
+.cache/
+.angular/
+*.log
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Document build intermediates
+docs/rendered/
+docs/tmp/
