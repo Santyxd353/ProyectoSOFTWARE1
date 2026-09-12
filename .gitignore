@@ -24,6 +24,7 @@ generated-projects/
 *.log
 
 # Editors and operating systems
+.worktrees/
 .idea/
 .vscode/
 .DS_Store
