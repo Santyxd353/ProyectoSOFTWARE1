@@ -20,20 +20,24 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  ownedWorkspaces     Workspace[]           @relation("WorkspaceOwner")
-  collaborations      WorkspaceCollaborator[]
-  diagramActivities   DiagramActivity[]
-  generatedCodes      GeneratedCode[]
+  ownedWorkspaces   Workspace[]             @relation("WorkspaceOwner")
+  collaborations    WorkspaceCollaborator[]
+  diagramActivities DiagramActivity[]
+  generatedCodes    GeneratedCode[]
+  codeRevisions     CodeRevision[]          @relation("RevisionAuthor")
+  reviewComments    ReviewComment[]
+  auditEvents       AuditEvent[]            @relation("AuditActor")
 
   @@map("users")
 }
 
 model Workspace {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  name                String
+  description         String?
+  allowViewerComments Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   // Foreign Keys
   ownerId String
@@ -42,6 +46,8 @@ model Workspace {
   // Relations
   collaborators WorkspaceCollaborator[]
   diagrams      Diagram[]
+  codeRevisions CodeRevision[]
+  auditEvents   AuditEvent[]
 
   @@map("workspaces")
 }
@@ -53,8 +59,8 @@ enum Role {
 }
 
 model WorkspaceCollaborator {
-  id       String @id @default(cuid())
-  role     Role   @default(VIEWER)
+  id       String   @id @default(cuid())
+  role     Role     @default(VIEWER)
   joinedAt DateTime @default(now())
 
   // Foreign Keys
@@ -84,6 +90,7 @@ model Diagram {
   relations     UMLRelation[]
   activities    DiagramActivity[]
   generatedCode GeneratedCode[]
+  codeRevisions CodeRevision[]
 
   @@map("diagrams")
 }
@@ -100,8 +107,8 @@ model UMLClass {
   // Relations
   attributes      UMLAttribute[]
   methods         UMLMethod[]
-  sourceRelations UMLRelation[] @relation("SourceClass")
-  targetRelations UMLRelation[] @relation("TargetClass")
+  sourceRelations UMLRelation[]  @relation("SourceClass")
+  targetRelations UMLRelation[]  @relation("TargetClass")
 
   @@map("uml_classes")
 }
@@ -211,8 +218,114 @@ model GeneratedCode {
   // Foreign Keys
   diagramId   String
   generatedBy String
-  diagram     Diagram @relation(fields: [diagramId], references: [id], onDelete: Cascade)
-  user        User    @relation(fields: [generatedBy], references: [id], onDelete: Cascade)
+  revisionId  String?       @unique
+  diagram     Diagram       @relation(fields: [diagramId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [generatedBy], references: [id], onDelete: Cascade)
+  revision    CodeRevision? @relation(fields: [revisionId], references: [id], onDelete: SetNull)
 
   @@map("generated_codes")
+}
+
+enum RevisionStatus {
+  CREATING
+  PUBLISHED
+  FAILED
+}
+
+enum AuditAction {
+  REVISION_PUBLISHED
+  REVISION_PUBLICATION_FAILED
+  REVISION_COMPARED
+  REVISION_DOWNLOADED
+  REVISION_RESTORED
+  REVIEW_COMMENT_CREATED
+  MEMBER_ROLE_UPDATED
+  MEMBER_REMOVED
+  REPOSITORY_POLICY_UPDATED
+}
+
+model CodeRevision {
+  id               String         @id @default(cuid())
+  workspaceId      String
+  diagramId        String
+  modelVersion     Int
+  authorId         String
+  projectType      ProjectType
+  generator        String
+  status           RevisionStatus @default(CREATING)
+  parentRevisionId String?
+  restoredFromId   String?
+  manifest         Json           @default("{}")
+  createdAt        DateTime       @default(now())
+  publishedAt      DateTime?
+
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  diagram        Diagram         @relation(fields: [diagramId], references: [id], onDelete: Cascade)
+  author         User            @relation("RevisionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  parentRevision CodeRevision?   @relation("RevisionParent", fields: [parentRevisionId], references: [id], onDelete: SetNull)
+  childRevisions CodeRevision[]  @relation("RevisionParent")
+  restoredFrom   CodeRevision?   @relation("RevisionRestore", fields: [restoredFromId], references: [id], onDelete: SetNull)
+  restorations   CodeRevision[]  @relation("RevisionRestore")
+  files          RevisionFile[]
+  comments       ReviewComment[]
+  generatedCode  GeneratedCode?
+
+  @@index([workspaceId, createdAt])
+  @@index([diagramId, createdAt])
+  @@map("code_revisions")
+}
+
+model RevisionFile {
+  id         String   @id @default(cuid())
+  revisionId String
+  path       String
+  storageKey String
+  checksum   String
+  size       Int
+  mimeType   String
+  isBinary   Boolean
+  createdAt  DateTime @default(now())
+
+  revision CodeRevision    @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  comments ReviewComment[]
+
+  @@unique([revisionId, path])
+  @@index([revisionId])
+  @@map("revision_files")
+}
+
+model ReviewComment {
+  id         String   @id @default(cuid())
+  revisionId String
+  fileId     String
+  authorId   String
+  line       Int?
+  body       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  revision CodeRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  file     RevisionFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  author   User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([revisionId, fileId, createdAt])
+  @@map("review_comments")
+}
+
+model AuditEvent {
+  id          String      @id @default(cuid())
+  workspaceId String
+  actorId     String
+  action      AuditAction
+  entityType  String
+  entityId    String
+  metadata    Json        @default("{}")
+  createdAt   DateTime    @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor     User      @relation("AuditActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_events")
 }

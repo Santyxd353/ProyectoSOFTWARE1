@@ -103,7 +103,7 @@ git commit -m "feat: centralize workspace authorization"
 - Consumes: authenticated `workspaceId`, `actorId`.
 - Produces: Prisma models `CodeRevision`, `RevisionFile`, `ReviewComment`, `AuditEvent`; `AuditService.record(input)`.
 
-- [ ] **Step 1: Write failing audit sanitization test**
+- [x] **Step 1: Write failing audit sanitization test**
 
 ```ts
 it('stores bounded metadata without sensitive fields', async () => {
@@ -118,33 +118,33 @@ it('stores bounded metadata without sensitive fields', async () => {
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `cd backend; npm test -- audit.service.spec.ts --runInBand`
 
 Expected: FAIL because audit service and Prisma model do not exist.
 
-- [ ] **Step 3: Add enums and relations**
+- [x] **Step 3: Add enums and relations**
 
 Add `allowViewerComments Boolean @default(false)` to `Workspace`. Add enums `RevisionStatus { CREATING PUBLISHED FAILED }` and `AuditAction` values for generation, comment, comparison, download, restoration, member role update/removal, and policy update. Add models and unique/index constraints from the spec, including `@@unique([revisionId, path])`, `GeneratedCode.revisionId String? @unique`, and all inverse relations required by Prisma.
 
-- [ ] **Step 4: Create exact SQL migration and regenerate client**
+- [x] **Step 4: Create exact SQL migration and regenerate client**
 
 Run: `cd backend; npx prisma format; npx prisma validate; npx prisma generate`
 
 Expected: schema valid and client generated.
 
-- [ ] **Step 5: Implement bounded audit metadata**
+- [x] **Step 5: Implement bounded audit metadata**
 
 `record` accepts primitive/JSON-safe metadata, removes keys matching `token`, `password`, `secret`, `path`, `storageKey`, `audio`, and `content`, serializes at most 8 KB, then calls `prisma.auditEvent.create`.
 
-- [ ] **Step 6: Verify GREEN**
+- [x] **Step 6: Verify GREEN**
 
 Run: `cd backend; npm test -- audit.service.spec.ts --runInBand`
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/prisma backend/src/audit
