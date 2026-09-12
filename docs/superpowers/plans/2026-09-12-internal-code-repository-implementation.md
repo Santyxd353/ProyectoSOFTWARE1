@@ -34,7 +34,7 @@
 **Interfaces:**
 - Produces: `WorkspaceCapability`, `WorkspaceAccess`, `AuthorizationService.getAccess(workspaceId, userId)`, and `AuthorizationService.require(workspaceId, userId, capability)`.
 
-- [ ] **Step 1: Write failing role-capability tests**
+- [x] **Step 1: Write failing role-capability tests**
 
 ```ts
 it.each([
@@ -54,13 +54,13 @@ it('allows viewer comments only when policy is enabled', async () => {
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `cd backend; npm test -- authorization.service.spec.ts --runInBand`
 
 Expected: FAIL because `AuthorizationService` does not exist.
 
-- [ ] **Step 3: Implement capability mapping**
+- [x] **Step 3: Implement capability mapping**
 
 ```ts
 export type WorkspaceCapability =
@@ -77,13 +77,13 @@ export interface WorkspaceAccess {
 
 `getAccess` loads owner and matching collaborator once. `require` returns access when the role permits the capability and throws `NotFoundException`/`ForbiddenException` otherwise. Export service from a module importing `PrismaModule`.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `cd backend; npm test -- authorization.service.spec.ts --runInBand`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/authorization
