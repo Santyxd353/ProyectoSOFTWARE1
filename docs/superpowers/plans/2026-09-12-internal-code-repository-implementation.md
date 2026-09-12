@@ -165,7 +165,7 @@ git commit -m "feat: add revision and audit data model"
 **Interfaces:**
 - Produces: `ARTIFACT_STORAGE`, `ArtifactStorage.put/read/exists/delete`, `ProjectFileScanner.scan(root)` returning normalized file descriptors.
 
-- [ ] **Step 1: Write failing storage and traversal tests**
+- [x] **Step 1: Write failing storage and traversal tests**
 
 ```ts
 it('round-trips bytes through an opaque key', async () => {
@@ -182,13 +182,13 @@ it('rejects symbolic links while scanning', async () => {
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `cd backend; npm test -- artifact-storage --runInBand`
 
 Expected: FAIL because storage classes do not exist.
 
-- [ ] **Step 3: Implement contract and local adapter**
+- [x] **Step 3: Implement contract and local adapter**
 
 ```ts
 export interface ArtifactStorage {
@@ -202,13 +202,13 @@ export const ARTIFACT_STORAGE = Symbol('ARTIFACT_STORAGE');
 
 Resolve keys under `ARTIFACT_STORAGE_PATH` (default `./artifacts`), compare `path.relative` against the root, and use recursive directory creation. Scanner uses `lstat`, accepts regular files only, returns slash-normalized relative paths, SHA-256, size, MIME, and binary detection based on NUL bytes/UTF-8 decoding.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `cd backend; npm test -- artifact-storage --runInBand`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/artifact-storage backend/.env.example
