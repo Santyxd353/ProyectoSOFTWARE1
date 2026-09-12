@@ -227,7 +227,7 @@ git commit -m "feat: add safe local artifact storage"
 - Consumes: `AuthorizationService`, `AuditService`, `ProjectFileScanner`, `ArtifactStorage`.
 - Produces: `publishGeneratedProject(input): Promise<RevisionSummaryDto>`.
 
-- [ ] **Step 1: Write failing publication tests**
+- [x] **Step 1: Write failing publication tests**
 
 ```ts
 it('publishes one immutable revision with every scanned file', async () => {
@@ -244,23 +244,23 @@ it('marks revision failed when artifact write fails', async () => {
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `cd backend; npm test -- code-repository.service.spec.ts --runInBand`
 
 Expected: FAIL because repository service does not exist.
 
-- [ ] **Step 3: Implement publication transaction**
+- [x] **Step 3: Implement publication transaction**
 
 Require `repository:generate`, create `CREATING`, scan, store each object under `<workspace>/<revision>/<checksum>`, insert metadata, mark `PUBLISHED` with `publishedAt`, and audit `REVISION_PUBLISHED`. On error, mark `FAILED`, delete newly written objects idempotently, audit failure, then rethrow. DTO excludes `storageKey` and physical roots.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `cd backend; npm test -- code-repository.service.spec.ts --runInBand`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/code-repository
