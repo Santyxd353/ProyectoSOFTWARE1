@@ -280,7 +280,7 @@ git commit -m "feat: publish generated code revisions"
 **Interfaces:**
 - Produces every REST route listed in spec section 9 and service methods `list`, `get`, `tree`, `readFile`, `compare`, `download`, `restore`, `listComments`, `createComment`.
 
-- [ ] **Step 1: Add failing behavior tests**
+- [x] **Step 1: Add failing behavior tests**
 
 Cover: members can list/open; binary reads return metadata without bytes; unified text diff is deterministic and size-limited; restore creates a new `PUBLISHED` revision with `restoredFromId`; ZIP paths are normalized; comments reject line zero/blank/over-limit bodies; viewer policy is enforced.
 
@@ -295,23 +295,23 @@ it('restores by creating a new revision without changing the source', async () =
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `cd backend; npm test -- code-repository.service.spec.ts --runInBand`
 
 Expected: new tests FAIL because methods are absent.
 
-- [ ] **Step 3: Implement REST behavior**
+- [x] **Step 3: Implement REST behavior**
 
 Every method calls `AuthorizationService.require`. Text responses decode UTF-8 only below configured limit. Comparison emits `{ path, kind, patch? }`, where kind is `ADDED|REMOVED|MODIFIED|UNCHANGED|BINARY_MODIFIED`. Download returns `{ stream, filename, cleanup }`; controller registers cleanup for `finish`, `close`, and `error`. Restore copies existing storage references into a new immutable revision. Comment DTO uses `@IsString`, `@MaxLength(4000)`, `@IsInt`, `@Min(1)`, and optional line.
 
-- [ ] **Step 4: Verify GREEN and controller compilation**
+- [x] **Step 4: Verify GREEN and controller compilation**
 
 Run: `cd backend; npm test -- code-repository.service.spec.ts --runInBand; npm run build`
 
 Expected: PASS and Nest build exits 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/code-repository

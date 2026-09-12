@@ -31,3 +31,51 @@ export interface RevisionSummaryDto {
   fileCount: number;
   commentCount: number;
 }
+
+export interface RevisionFileDto {
+  id: string;
+  revisionId: string;
+  path: string;
+  checksum: string;
+  size: number;
+  mimeType: string;
+  isBinary: boolean;
+  createdAt: Date;
+}
+
+export interface RevisionFileContentDto extends RevisionFileDto {
+  content?: string;
+}
+
+export type RevisionFileDiffKind =
+  | 'ADDED'
+  | 'REMOVED'
+  | 'MODIFIED'
+  | 'UNCHANGED'
+  | 'BINARY_MODIFIED';
+
+export interface RevisionFileDiffDto {
+  path: string;
+  kind: RevisionFileDiffKind;
+  base?: Pick<RevisionFileDto, 'id' | 'checksum' | 'size' | 'mimeType' | 'isBinary'>;
+  target?: Pick<RevisionFileDto, 'id' | 'checksum' | 'size' | 'mimeType' | 'isBinary'>;
+  patch?: string;
+}
+
+export interface RevisionComparisonDto {
+  baseRevisionId: string;
+  targetRevisionId: string;
+  files: RevisionFileDiffDto[];
+}
+
+export interface CreateReviewCommentInput {
+  fileId: string;
+  line?: number;
+  body: string;
+}
+
+export interface RevisionDownload {
+  stream: NodeJS.ReadableStream;
+  filename: string;
+  cleanup: () => Promise<void>;
+}
