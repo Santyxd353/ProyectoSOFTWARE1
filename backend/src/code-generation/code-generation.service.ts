@@ -1,6 +1,14 @@
-import { Injectable, BadRequestException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectType } from '@prisma/client';
+import { CodeRepositoryService } from '../code-repository/code-repository.service';
+import { AuthorizationService } from '../authorization/authorization.service';
+import { RevisionDownload } from '../code-repository/code-repository.types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as archiver from 'archiver';
@@ -9,7 +17,11 @@ import * as ejs from 'ejs';
 
 @Injectable()
 export class CodeGenerationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly repository: CodeRepositoryService,
+    private readonly authorization: AuthorizationService,
+  ) {}
 
   async generateSpringBootProject(diagramId: string, userId: string) {
     console.log(`🚀 Generating Spring Boot project for diagram: ${diagramId}`);
@@ -24,6 +36,11 @@ export class CodeGenerationService {
     if (!diagram) {
       throw new BadRequestException('Diagram not found');
     }
+    await this.authorization.require(
+      diagram.workspaceId,
+      userId,
+      'repository:generate',
+    );
 
     // Extract classes and relations from the JSON data field
     const diagramData = diagram.data as any;
@@ -71,6 +88,16 @@ export class CodeGenerationService {
       await this.createZipFile(projectPath, zipPath);
       console.log(`✅ ZIP file created: ${zipPath}`);
 
+      const revision = await this.repository.publishGeneratedProject({
+        workspaceId: diagram.workspaceId,
+        diagramId,
+        modelVersion: diagram.version,
+        authorId: userId,
+        projectType: ProjectType.SPRING_BOOT,
+        generator: 'spring-ejs@1',
+        rootPath: projectPath,
+      });
+
       // Save generation record (with retry logic)
       const generatedCode = await this.prisma.retryQuery(() =>
         this.prisma.generatedCode.create({
@@ -79,6 +106,7 @@ export class CodeGenerationService {
             zipPath: zipPath,
             diagramId,
             generatedBy: userId,
+            revisionId: revision.id,
           },
         })
       );
@@ -88,12 +116,13 @@ export class CodeGenerationService {
         projectPath,
         zipPath,
         generatedCodeId: generatedCode.id,
+        revisionId: revision.id,
         message: 'Spring Boot project generated successfully with tests and Docker configuration',
       };
     } catch (error) {
       console.error('❌ Error generating project:', error);
       console.error('Stack trace:', error.stack);
-      throw new Error(`Failed to generate Spring Boot project: ${error.message}`);
+      throw error;
     }
   }
 
@@ -110,6 +139,11 @@ export class CodeGenerationService {
     if (!diagram) {
       throw new BadRequestException('Diagram not found');
     }
+    await this.authorization.require(
+      diagram.workspaceId,
+      userId,
+      'repository:generate',
+    );
 
     // Extract classes and relations from the JSON data field
     const diagramData = diagram.data as any;
@@ -152,6 +186,16 @@ export class CodeGenerationService {
       await this.createZipFile(projectPath, zipPath);
       console.log(`✅ Flutter ZIP file created: ${zipPath}`);
 
+      const revision = await this.repository.publishGeneratedProject({
+        workspaceId: diagram.workspaceId,
+        diagramId,
+        modelVersion: diagram.version,
+        authorId: userId,
+        projectType: ProjectType.FLUTTER,
+        generator: 'flutter-ejs@1',
+        rootPath: projectPath,
+      });
+
       // Save generation record
       const generatedCode = await this.prisma.retryQuery(() =>
         this.prisma.generatedCode.create({
@@ -160,6 +204,7 @@ export class CodeGenerationService {
             zipPath: zipPath,
             diagramId,
             generatedBy: userId,
+            revisionId: revision.id,
           },
         })
       );
@@ -169,12 +214,13 @@ export class CodeGenerationService {
         projectPath,
         zipPath,
         generatedCodeId: generatedCode.id,
+        revisionId: revision.id,
         message: 'Flutter project generated successfully with CRUD screens',
       };
     } catch (error) {
       console.error('❌ Error generating Flutter project:', error);
       console.error('Stack trace:', error.stack);
-      throw new Error(`Failed to generate Flutter project: ${error.message}`);
+      throw error;
     }
   }
 
@@ -845,16 +891,40 @@ export class CodeGenerationService {
     });
   }
 
-  async downloadProject(generatedCodeId: string): Promise<string> {
+  async downloadProject(
+    generatedCodeId: string,
+    userId: string,
+  ): Promise<
+    | ({ kind: 'revision' } & RevisionDownload)
+    | { kind: 'legacy'; zipPath: string }
+  > {
     const generatedCode = await this.prisma.generatedCode.findUnique({
       where: { id: generatedCodeId },
+      include: { diagram: { select: { workspaceId: true } } },
     });
 
     if (!generatedCode) {
-      throw new Error('Generated code not found');
+      throw new NotFoundException('Generated code not found');
     }
 
-    return generatedCode.zipPath;
+    await this.authorization.require(
+      generatedCode.diagram.workspaceId,
+      userId,
+      'repository:read',
+    );
+
+    if (generatedCode.revisionId) {
+      return {
+        kind: 'revision',
+        ...(await this.repository.download(
+          generatedCode.diagram.workspaceId,
+          generatedCode.revisionId,
+          userId,
+        )),
+      };
+    }
+
+    return { kind: 'legacy', zipPath: generatedCode.zipPath };
   }
 
   async getGeneratedProjects(userId: string) {

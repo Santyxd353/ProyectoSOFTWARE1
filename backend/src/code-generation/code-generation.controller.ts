@@ -14,21 +14,11 @@ export class CodeGenerationController {
   async generateSpringBoot(
     @Param('diagramId') diagramId: string,
     @Request() req,
-    @Res() res: Response,
   ) {
-    try {
-      const result = await this.codeGenerationService.generateSpringBootProject(
-        diagramId,
-        req.user.userId,
-      );
-
-      res.json(result);
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error.message,
-      });
-    }
+    return this.codeGenerationService.generateSpringBootProject(
+      diagramId,
+      req.user.userId,
+    );
   }
 
   @Get('download/:generatedCodeId')
@@ -37,64 +27,59 @@ export class CodeGenerationController {
     @Request() req,
     @Res() res: Response,
   ) {
-    try {
-      const zipPath = await this.codeGenerationService.downloadProject(generatedCodeId);
+    const download = await this.codeGenerationService.downloadProject(
+      generatedCodeId,
+      req.user.userId,
+    );
 
-      if (!fs.existsSync(zipPath)) {
+    if (download.kind === 'legacy') {
+      if (!fs.existsSync(download.zipPath)) {
         return res.status(404).json({
           success: false,
           error: 'Generated project file not found',
         });
       }
-
-      const fileName = path.basename(zipPath);
+      const fileName = path.basename(download.zipPath);
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-
-      const fileStream = fs.createReadStream(zipPath);
+      const fileStream = fs.createReadStream(download.zipPath);
       fileStream.pipe(res);
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error.message,
-      });
+      return;
     }
+
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      void download.cleanup();
+    };
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${download.filename}"`,
+    );
+    res.on('finish', cleanup);
+    res.on('close', cleanup);
+    res.on('error', cleanup);
+    download.stream.pipe(res);
   }
 
   @Post('flutter/:diagramId')
   async generateFlutter(
     @Param('diagramId') diagramId: string,
     @Request() req,
-    @Res() res: Response,
   ) {
-    try {
-      const result = await this.codeGenerationService.generateFlutterProject(
-        diagramId,
-        req.user.userId,
-      );
-
-      res.json(result);
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error.message,
-      });
-    }
+    return this.codeGenerationService.generateFlutterProject(
+      diagramId,
+      req.user.userId,
+    );
   }
 
   @Get('projects')
-  async getGeneratedProjects(@Request() req, @Res() res: Response) {
-    try {
-      const projects = await this.codeGenerationService.getGeneratedProjects(req.user.userId);
-      res.json({
-        success: true,
-        projects,
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error.message,
-      });
-    }
+  async getGeneratedProjects(@Request() req) {
+    const projects = await this.codeGenerationService.getGeneratedProjects(
+      req.user.userId,
+    );
+    return { success: true, projects };
   }
 }

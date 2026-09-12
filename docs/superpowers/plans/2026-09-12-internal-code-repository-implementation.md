@@ -330,7 +330,7 @@ git commit -m "feat: expose repository review workflows"
 - Consumes: `CodeRepositoryService.publishGeneratedProject` and authorization.
 - Produces: generation responses containing `revisionId`; legacy downloads scoped to authorized workspace membership.
 
-- [ ] **Step 1: Write failing integration tests**
+- [x] **Step 1: Write failing integration tests**
 
 ```ts
 it('publishes exactly one revision after successful Spring generation', async () => {
@@ -345,23 +345,23 @@ it('denies legacy download to users outside the generated code workspace', async
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `cd backend; npm test -- code-generation.service.spec.ts --runInBand`
 
 Expected: FAIL because publication and authorization are not wired.
 
-- [ ] **Step 3: Implement integration**
+- [x] **Step 3: Implement integration**
 
 Load diagram with `workspaceId` and `version`, require generation capability before filesystem work, publish after templates finish, create/update `GeneratedCode` with `revisionId`, return revision metadata, and pass authenticated `userId` to legacy download. Preserve old ZIP behavior only for existing records without revisions.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `cd backend; npm test -- code-generation.service.spec.ts --runInBand; npm run build`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/code-generation
