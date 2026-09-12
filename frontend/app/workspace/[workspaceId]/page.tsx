@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Users, Calendar, FileText, ArrowLeft, Settings, Share, X, Trash2 } from 'lucide-react';
+import { Plus, Users, Calendar, FileText, ArrowLeft, Settings, Share, X, Trash2, Code2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { diagramAPI } from '@/lib/api';
 import { Diagram } from '@/types/uml';
 import { workspaceAPI } from '@/lib/api';
 import ThemeToggle from '@/components/theme/ThemeToggle';
+import CodeRepositoryPanel from '@/components/repository/CodeRepositoryPanel';
+import MemberManagement from '@/components/workspace/MemberManagement';
+import { Role } from '@/types/workspace';
 
 interface WorkspacePageProps {
   params: {
@@ -30,6 +33,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [diagramToDelete, setDiagramToDelete] = useState<Diagram | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'diagrams' | 'code' | 'members'>('diagrams');
 
   useEffect(() => {
     if (!user) {
@@ -147,6 +151,10 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
     );
   }
 
+  const currentRole = currentWorkspace.currentUserRole ?? (
+    currentWorkspace.owner.id === user.id ? Role.OWNER : Role.VIEWER
+  );
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -168,13 +176,15 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
             </div>
             <div className="flex items-center space-x-3">
               <ThemeToggle />
-              <button
-                onClick={() => setIsShareModalOpen(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors shadow-sm">
-                <Share size={16} />
-                <span>Compartir</span>
-              </button>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors">
+              {currentRole === Role.OWNER && (
+                <button
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="flex min-h-11 items-center space-x-2 rounded-md bg-primary px-4 text-primary-foreground shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <Share size={16} />
+                  <span>Compartir</span>
+                </button>
+              )}
+              <button onClick={() => setActiveTab('members')} className="flex min-h-11 items-center space-x-2 rounded-md bg-gray-100 px-4 text-gray-700 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <Settings size={16} />
                 <span>Configuración</span>
               </button>
@@ -186,6 +196,31 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
+          <nav className="mb-6 flex flex-wrap gap-2 border-b border-border" aria-label="Secciones del proyecto">
+            {[
+              { id: 'diagrams' as const, label: 'Diagramas', icon: FileText },
+              { id: 'code' as const, label: 'Código', icon: Code2 },
+              { id: 'members' as const, label: 'Miembros', icon: Users },
+            ].map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveTab(id)}
+                aria-current={activeTab === id ? 'page' : undefined}
+                className={`flex min-h-11 cursor-pointer items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  activeTab === id
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
+                }`}
+              >
+                <Icon size={17} />
+                {label}
+              </button>
+            ))}
+          </nav>
+
+          {activeTab === 'diagrams' && (
+          <div>
           {/* Workspace Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-card overflow-hidden border border-border shadow-sm rounded-lg">
@@ -364,6 +399,24 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                 </div>
               </div>
             </div>
+          )}
+          </div>
+          )}
+
+          {activeTab === 'code' && (
+            <CodeRepositoryPanel
+              workspaceId={params.workspaceId}
+              role={currentRole}
+              allowViewerComments={currentWorkspace.allowViewerComments}
+            />
+          )}
+
+          {activeTab === 'members' && (
+            <MemberManagement
+              workspaceId={params.workspaceId}
+              role={currentRole}
+              onWorkspaceChanged={() => fetchWorkspaceById(params.workspaceId)}
+            />
           )}
         </div>
       </main>

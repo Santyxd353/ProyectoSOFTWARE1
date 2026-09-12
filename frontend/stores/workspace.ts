@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Workspace, CreateWorkspaceData } from '@/types/workspace';
+import { Role, Workspace, CreateWorkspaceData } from '@/types/workspace';
 import { workspaceAPI } from '@/lib/api';
 
 interface WorkspaceState {
@@ -16,6 +16,9 @@ interface WorkspaceState {
   fetchWorkspaceById: (id: string) => Promise<void>;
   createWorkspace: (data: CreateWorkspaceData) => Promise<Workspace>;
   addCollaborator: (workspaceId: string, email: string, role?: string) => Promise<void>;
+  updateMemberRole: (workspaceId: string, memberId: string, role: Role.EDITOR | Role.VIEWER) => Promise<void>;
+  removeMember: (workspaceId: string, memberId: string) => Promise<void>;
+  updateRepositoryPolicy: (workspaceId: string, allowViewerComments: boolean) => Promise<void>;
   clearError: () => void;
 }
 
@@ -93,6 +96,21 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       });
       throw error;
     }
+  },
+
+  updateMemberRole: async (workspaceId, memberId, role) => {
+    await workspaceAPI.updateMemberRole(workspaceId, memberId, role);
+    await get().fetchWorkspaceById(workspaceId);
+  },
+
+  removeMember: async (workspaceId, memberId) => {
+    await workspaceAPI.removeMember(workspaceId, memberId);
+    await get().fetchWorkspaceById(workspaceId);
+  },
+
+  updateRepositoryPolicy: async (workspaceId, allowViewerComments) => {
+    await workspaceAPI.updateRepositoryPolicy(workspaceId, allowViewerComments);
+    await get().fetchWorkspaceById(workspaceId);
   },
 
   clearError: () => {

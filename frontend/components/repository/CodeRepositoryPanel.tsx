@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, History, Loader2, RotateCcw } from 'lucide-react';
 import { repositoryAPI } from '@/lib/api';
 import { buildRepositoryTree } from '@/lib/repository-tree';
+import { repositoryCapabilities } from '@/lib/repository-capabilities';
 import { Role } from '@/types/workspace';
 import {
   RevisionFile,
@@ -100,8 +101,10 @@ export default function CodeRepositoryPanel({ workspaceId, role, allowViewerComm
 
   const tree = useMemo(() => buildRepositoryTree(files), [files]);
   const selectedRevision = revisions.find((revision) => revision.id === revisionId);
-  const canRestore = role === Role.OWNER || role === Role.EDITOR;
-  const canComment = canRestore || allowViewerComments;
+  const { canRestore, canComment } = repositoryCapabilities(
+    role,
+    allowViewerComments,
+  );
 
   if (loading) {
     return <div className="flex min-h-64 items-center justify-center gap-2 text-muted-foreground"><Loader2 className="animate-spin" size={20} /> Cargando repositorio…</div>;

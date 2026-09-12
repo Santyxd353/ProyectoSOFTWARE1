@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { AuthResponse, LoginData, RegisterData } from '@/types/auth';
-import { Workspace, CreateWorkspaceData } from '@/types/workspace';
+import { Role, Workspace, CreateWorkspaceData, WorkspaceMembersResponse } from '@/types/workspace';
 import { Diagram } from '@/types/uml';
 import {
   ReviewComment,
@@ -85,6 +85,41 @@ export const workspaceAPI = {
       email,
       role,
     });
+    return response.data;
+  },
+
+  getMembers: async (workspaceId: string): Promise<WorkspaceMembersResponse> => {
+    const response = await api.get(`/workspaces/${workspaceId}/members`);
+    return response.data;
+  },
+
+  updateMemberRole: async (
+    workspaceId: string,
+    memberId: string,
+    role: Role.EDITOR | Role.VIEWER,
+  ) => {
+    const response = await api.patch(
+      `/workspaces/${workspaceId}/members/${memberId}`,
+      { role },
+    );
+    return response.data;
+  },
+
+  removeMember: async (workspaceId: string, memberId: string) => {
+    const response = await api.delete(
+      `/workspaces/${workspaceId}/members/${memberId}`,
+    );
+    return response.data;
+  },
+
+  updateRepositoryPolicy: async (
+    workspaceId: string,
+    allowViewerComments: boolean,
+  ) => {
+    const response = await api.patch(
+      `/workspaces/${workspaceId}/repository-policy`,
+      { allowViewerComments },
+    );
     return response.data;
   },
 };

@@ -536,7 +536,7 @@ git commit -m "feat: add generated code repository interface"
 - Consumes: repository components and member/policy endpoints.
 - Produces: workspace `Diagramas|Código|Miembros` tabs; owner-only member administration.
 
-- [ ] **Step 1: Write failing capability tests**
+- [x] **Step 1: Write failing capability tests**
 
 ```js
 test('viewer can read and conditionally comment but cannot restore', () => {
@@ -547,27 +547,27 @@ test('viewer can read and conditionally comment but cannot restore', () => {
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `cd frontend; npm test`
 
 Expected: capability test FAIL because helper is absent.
 
-- [ ] **Step 3: Implement workspace role/policy state**
+- [x] **Step 3: Implement workspace role/policy state**
 
 Extend workspace DTO with `ownerId`, `currentUserRole`, `allowViewerComments`, and effective capabilities. Add API/store methods for role update, removal, and policy update, always refreshing current workspace after mutation.
 
-- [ ] **Step 4: Integrate tabs and controls**
+- [x] **Step 4: Integrate tabs and controls**
 
 Keep current diagram cards under `Diagramas`; render `CodeRepositoryPanel` under `Código`; render `MemberManagement` under `Miembros`. Owner sees role selectors, remove actions, and viewer-comment toggle. Editor/viewer sees read-only member list. Preserve responsive layout, theme tokens, focus rings, and Spanish labels.
 
-- [ ] **Step 5: Verify GREEN**
+- [x] **Step 5: Verify GREEN**
 
 Run: `cd frontend; npm test; npm run type-check; npm run build`
 
 Expected: all pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/app/workspace frontend/components/workspace frontend/lib/api.ts frontend/stores frontend/types frontend/tests
