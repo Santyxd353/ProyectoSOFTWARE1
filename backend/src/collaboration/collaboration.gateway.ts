@@ -1,14 +1,24 @@
 import {
-  WebSocketGateway,
-  SubscribeMessage,
-  MessageBody,
   ConnectedSocket,
-  WebSocketServer,
+  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
+  WsException,
 } from '@nestjs/websockets';
+import { RevisionStatus } from '@prisma/client';
 import { Server, Socket } from 'socket.io';
+import { AuthorizationService } from '../authorization/authorization.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { CollaborationService } from './collaboration.service';
+import { RepositoryRealtimeService } from './repository-realtime.service';
+import {
+  AuthenticatedSocketUser,
+  SocketAuthService,
+} from './socket-auth.service';
 
 @WebSocketGateway({
   cors: {
@@ -17,36 +27,53 @@ import { CollaborationService } from './collaboration.service';
   },
   namespace: '/collaboration',
 })
-export class CollaborationGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class CollaborationGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
-  constructor(private collaborationService: CollaborationService) {}
+  constructor(
+    private readonly collaboration: CollaborationService,
+    private readonly socketAuth: SocketAuthService,
+    private readonly authorization: AuthorizationService,
+    private readonly prisma: PrismaService,
+    private readonly realtime: RepositoryRealtimeService,
+  ) {}
 
-  handleConnection(client: Socket) {
-    console.log(`Client connected: ${client.id}`);
+  afterInit(server: Server): void {
+    this.realtime.attachServer(server);
   }
 
-  handleDisconnect(client: Socket) {
-    console.log(`Client disconnected: ${client.id}`);
-    this.collaborationService.handleDisconnect(client.id);
+  async handleConnection(client: Socket): Promise<void> {
+    try {
+      await this.socketAuth.authenticate(client);
+    } catch {
+      client.disconnect(true);
+    }
+  }
+
+  handleDisconnect(client: Socket): void {
+    this.collaboration.handleDisconnect(client.id);
   }
 
   @SubscribeMessage('join_diagram')
   async handleJoinDiagram(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { diagramId: string; userId: string; userName: string },
+    @MessageBody() data: { diagramId: string },
   ) {
     try {
-      await this.collaborationService.joinDiagram(client, data);
-
-      // Notify others in the room about new user
+      const user = this.user(client);
+      await this.collaboration.joinDiagram(client, {
+        diagramId: data.diagramId,
+        userId: user.id,
+        userName: user.name,
+      });
       client.to(data.diagramId).emit('user_joined', {
-        userId: data.userId,
-        userName: data.userName,
+        userId: user.id,
+        userName: user.name,
         socketId: client.id,
       });
-
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
@@ -54,45 +81,44 @@ export class CollaborationGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   @SubscribeMessage('leave_diagram')
-  async handleLeaveDiagram(
+  handleLeaveDiagram(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { diagramId: string; userId: string },
+    @MessageBody() data: { diagramId: string },
   ) {
+    const user = this.user(client);
     client.leave(data.diagramId);
-
-    // Notify others about user leaving
     client.to(data.diagramId).emit('user_left', {
-      userId: data.userId,
+      userId: user.id,
       socketId: client.id,
     });
-
     return { success: true };
   }
 
   @SubscribeMessage('diagram_change')
   async handleDiagramChange(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { diagramId: string; changes: any; userId: string },
+    @MessageBody() data: { diagramId: string; changes: unknown },
   ) {
-    // Broadcast changes to all other clients in the room
+    const user = this.user(client);
+    await this.collaboration.assertDiagramAccess(data.diagramId, user.id);
     client.to(data.diagramId).emit('diagram_change', {
       changes: data.changes,
-      userId: data.userId,
+      userId: user.id,
       timestamp: new Date().toISOString(),
     });
-
     return { success: true };
   }
 
   @SubscribeMessage('cursor_position')
   async handleCursorPosition(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { diagramId: string; position: { x: number; y: number }; userId: string },
+    @MessageBody() data: { diagramId: string; position: { x: number; y: number } },
   ) {
-    // Broadcast cursor position to others
+    const user = this.user(client);
+    await this.collaboration.assertDiagramAccess(data.diagramId, user.id);
     client.to(data.diagramId).emit('cursor_position', {
       position: data.position,
-      userId: data.userId,
+      userId: user.id,
       socketId: client.id,
     });
   }
@@ -100,13 +126,46 @@ export class CollaborationGateway implements OnGatewayConnection, OnGatewayDisco
   @SubscribeMessage('element_selected')
   async handleElementSelected(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { diagramId: string; elementId: string; userId: string },
+    @MessageBody() data: { diagramId: string; elementId: string },
   ) {
-    // Broadcast element selection to others
+    const user = this.user(client);
+    await this.collaboration.assertDiagramAccess(data.diagramId, user.id);
     client.to(data.diagramId).emit('element_selected', {
       elementId: data.elementId,
-      userId: data.userId,
+      userId: user.id,
       socketId: client.id,
     });
+  }
+
+  @SubscribeMessage('join_revision')
+  async handleJoinRevision(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { workspaceId: string; revisionId: string },
+  ) {
+    const user = this.user(client);
+    await this.authorization.require(
+      data.workspaceId,
+      user.id,
+      'repository:read',
+    );
+    const revision = await this.prisma.codeRevision.findFirst({
+      where: {
+        id: data.revisionId,
+        workspaceId: data.workspaceId,
+        status: RevisionStatus.PUBLISHED,
+      },
+      select: { id: true },
+    });
+    if (!revision) throw new WsException('Revision not found');
+    await client.join(
+      `workspace:${data.workspaceId}:revision:${data.revisionId}`,
+    );
+    return { success: true };
+  }
+
+  private user(client: Socket): AuthenticatedSocketUser {
+    const user = client.data.user as AuthenticatedSocketUser | undefined;
+    if (!user) throw new WsException('Unauthorized');
+    return user;
   }
 }

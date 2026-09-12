@@ -5,6 +5,7 @@ import { AuthorizationModule } from '../authorization/authorization.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { CodeRepositoryService } from './code-repository.service';
 import { CodeRepositoryController } from './code-repository.controller';
+import { CollaborationModule } from '../collaboration/collaboration.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { CodeRepositoryController } from './code-repository.controller';
     AuthorizationModule,
     AuditModule,
     ArtifactStorageModule,
+    CollaborationModule,
   ],
   controllers: [CodeRepositoryController],
   providers: [CodeRepositoryService],

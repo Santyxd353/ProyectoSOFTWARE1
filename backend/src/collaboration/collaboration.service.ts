@@ -19,9 +19,20 @@ export class CollaborationService {
     client: Socket,
     data: { diagramId: string; userId: string; userName: string },
   ) {
-    // Verify user has access to the diagram
+    await this.assertDiagramAccess(data.diagramId, data.userId);
+    client.join(data.diagramId);
+    this.connectedUsers.set(client.id, {
+      socketId: client.id,
+      userId: data.userId,
+      userName: data.userName,
+      diagramId: data.diagramId,
+    });
+    return true;
+  }
+
+  async assertDiagramAccess(diagramId: string, userId: string): Promise<void> {
     const diagram = await this.prisma.diagram.findUnique({
-      where: { id: data.diagramId },
+      where: { id: diagramId },
       include: {
         workspace: {
           include: {
@@ -36,25 +47,13 @@ export class CollaborationService {
     }
 
     // Check access
-    const hasAccess = diagram.workspace.ownerId === data.userId ||
-      diagram.workspace.collaborators.some(c => c.userId === data.userId);
+    const hasAccess = diagram.workspace.ownerId === userId ||
+      diagram.workspace.collaborators.some(c => c.userId === userId);
 
     if (!hasAccess) {
       throw new Error('Access denied to this diagram');
     }
 
-    // Join socket room
-    client.join(data.diagramId);
-
-    // Store connected user
-    this.connectedUsers.set(client.id, {
-      socketId: client.id,
-      userId: data.userId,
-      userName: data.userName,
-      diagramId: data.diagramId,
-    });
-
-    return true;
   }
 
   handleDisconnect(socketId: string) {

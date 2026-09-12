@@ -422,7 +422,7 @@ git commit -m "feat: manage workspace repository permissions"
 **Interfaces:**
 - Produces: authenticated `client.data.user`; `join_revision`; server event `review_comment_created` is named `review_comment_created` in code.
 
-- [ ] **Step 1: Write failing handshake tests**
+- [x] **Step 1: Write failing handshake tests**
 
 ```ts
 it('rejects a socket without a valid bearer token', async () => {
@@ -436,27 +436,27 @@ it('ignores client supplied identity and uses JWT subject', async () => {
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `cd backend; npm test -- socket-auth.service.spec.ts --runInBand`
 
 Expected: FAIL because socket auth service does not exist.
 
-- [ ] **Step 3: Implement handshake and authorized rooms**
+- [x] **Step 3: Implement handshake and authorized rooms**
 
 Read token from `socket.handshake.auth.token` or Bearer header, verify using Nest `JwtService`, assign only verified identity to `client.data.user`, and disconnect unauthorized clients. Remove `userId`/`userName` from diagram message DTOs. `join_revision` verifies repository read permission and joins `workspace:<workspaceId>:revision:<revisionId>`. After comment creation, gateway emits sanitized comment DTO to that room.
 
-- [ ] **Step 4: Send browser token in handshake**
+- [x] **Step 4: Send browser token in handshake**
 
 Update `useSocket` to pass `auth: { token: localStorage.getItem('token') }`; keep reconnection behavior and never send identity in events.
 
-- [ ] **Step 5: Verify GREEN**
+- [x] **Step 5: Verify GREEN**
 
 Run: `cd backend; npm test -- socket-auth.service.spec.ts --runInBand; npm run build; cd ../frontend; npm run type-check`
 
 Expected: all commands exit 0.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/src/auth backend/src/collaboration frontend/hooks/useSocket.ts

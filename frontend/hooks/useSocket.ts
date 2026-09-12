@@ -11,6 +11,9 @@ export function useSocket(url: string) {
     const socketInstance = io(`${url}/collaboration`, {
       transports: ['websocket'],
       autoConnect: true,
+      auth: {
+        token: localStorage.getItem('token'),
+      },
     });
 
     socketInstance.on('connect', () => {

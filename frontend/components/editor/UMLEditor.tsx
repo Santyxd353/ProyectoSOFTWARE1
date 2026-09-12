@@ -222,7 +222,6 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
             if (socket && isConnected) {
               emit('diagram_change', {
                 diagramId: diagram.id,
-                userId,
                 changes: {
                   type: 'edges',
                   edges: updatedEdges,
@@ -259,7 +258,6 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
             if (socket && isConnected) {
               emit('diagram_change', {
                 diagramId: diagram.id,
-                userId,
                 changes: {
                   type: 'full_update',
                   nodes: updatedNodes,
@@ -316,7 +314,6 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
           if (socket && isConnected) {
             emit('diagram_change', {
               diagramId: diagram.id,
-              userId,
               changes: {
                 type: 'nodes',
                 nodes: currentNodes,
@@ -511,8 +508,6 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
     if (socket && isConnected) {
       emit('join_diagram', {
         diagramId: diagram.id,
-        userId,
-        userName,
       });
 
       // Listen for diagram changes from other users
@@ -547,7 +542,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
 
     return () => {
       if (socket) {
-        emit('leave_diagram', { diagramId: diagram.id, userId });
+        emit('leave_diagram', { diagramId: diagram.id });
         socket.off('diagram_change');
         socket.off('user_joined');
         socket.off('user_left');
@@ -575,7 +570,6 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
         if (socket && isConnected) {
           emit('diagram_change', {
             diagramId: diagram.id,
-            userId,
             changes: {
               type: 'edges',
               edges: updatedEdges,
@@ -611,7 +605,6 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
         if (socket && isConnected) {
           emit('diagram_change', {
             diagramId: diagram.id,
-            userId,
             changes: {
               type: 'edges',
               edges: updatedEdges,
@@ -672,7 +665,6 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
       if (socket && isConnected) {
         emit('diagram_change', {
           diagramId: diagram.id,
-          userId,
           changes: {
             type: 'nodes',
             nodes: updatedNodes,
@@ -719,7 +711,6 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
       if (socket && isConnected) {
         emit('diagram_change', {
           diagramId: diagram.id,
-          userId,
           changes: {
             type: 'nodes',
             nodes: updatedNodes,
@@ -795,7 +786,6 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
       if (socket && isConnected) {
         emit('diagram_change', {
           diagramId: diagram.id,
-          userId,
           changes: {
             type: 'edges',
             edges: updatedEdges,
@@ -834,7 +824,6 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
       if (socket && isConnected) {
         emit('diagram_change', {
           diagramId: diagram.id,
-          userId,
           changes: {
             type: 'nodes',
             nodes: [...nodes, newNode],
@@ -1046,7 +1035,6 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
         if (socket && isConnected) {
           emit('diagram_change', {
             diagramId: diagram.id,
-            userId,
             changes: {
               type: 'full_update',
               nodes: finalNodes,

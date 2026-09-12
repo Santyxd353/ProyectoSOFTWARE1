@@ -30,6 +30,7 @@ import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import * as archiver from 'archiver';
+import { RepositoryRealtimeService } from '../collaboration/repository-realtime.service';
 
 @Injectable()
 export class CodeRepositoryService {
@@ -41,6 +42,7 @@ export class CodeRepositoryService {
     @Inject(ARTIFACT_STORAGE)
     private readonly storage: ArtifactStorage,
     private readonly config: ConfigService,
+    private readonly realtime: RepositoryRealtimeService,
   ) {}
 
   async publishGeneratedProject(
@@ -472,6 +474,7 @@ export class CodeRepositoryService {
       entityId: comment.id,
       metadata: { revisionId, fileId: file.id, line: input.line },
     });
+    this.realtime.emitReviewComment(workspaceId, revisionId, comment);
     return comment;
   }
 

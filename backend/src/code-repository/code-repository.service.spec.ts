@@ -58,6 +58,7 @@ describe('CodeRepositoryService publication', () => {
   const audit = {
     record: jest.fn(),
   };
+  const realtime = { emitReviewComment: jest.fn() };
 
   let service: CodeRepositoryService;
 
@@ -126,6 +127,7 @@ describe('CodeRepositoryService publication', () => {
       scanner as any,
       storage as any,
       { get: (_key: string, fallback: unknown) => fallback } as any,
+      realtime as any,
     );
   });
 
@@ -214,6 +216,7 @@ describe('CodeRepositoryService review workflows', () => {
     delete: jest.fn(),
   };
   const config = { get: (_key: string, fallback: unknown) => fallback };
+  const realtime = { emitReviewComment: jest.fn() };
   let service: CodeRepositoryService;
 
   const textFile = {
@@ -245,6 +248,7 @@ describe('CodeRepositoryService review workflows', () => {
       scanner as any,
       storage as any,
       config as any,
+      realtime as any,
     );
   });
 
@@ -417,6 +421,11 @@ describe('CodeRepositoryService review workflows', () => {
       line: 7,
       author: { id: 'user-1', name: 'Felix', avatar: null },
     });
+    expect(realtime.emitReviewComment).toHaveBeenCalledWith(
+      'workspace-1',
+      'revision-1',
+      comment,
+    );
   });
 
   it.each(['', '   ', 'x'.repeat(4001)])(
