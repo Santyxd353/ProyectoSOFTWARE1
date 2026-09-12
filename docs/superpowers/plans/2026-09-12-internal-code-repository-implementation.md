@@ -614,7 +614,7 @@ git add README.md docs/README.md .gitignore docs/superpowers/plans/2026-09-12-in
 git commit -m "docs: document internal repository workflow"
 ```
 
-- [ ] **Step 6: Review final diff against spec**
+- [x] **Step 6: Review final diff against spec**
 
 Run: `git diff origin/main...HEAD --stat; git log --oneline origin/main..HEAD`
 
