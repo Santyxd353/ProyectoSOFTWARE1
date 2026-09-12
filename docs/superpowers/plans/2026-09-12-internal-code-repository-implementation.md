@@ -381,27 +381,27 @@ git commit -m "feat: preserve generated projects as revisions"
 **Interfaces:**
 - Produces: `GET/PATCH/DELETE /workspaces/:workspaceId/members` and `PATCH /workspaces/:workspaceId/repository-policy`.
 
-- [ ] **Step 1: Write failing ownership tests**
+- [x] **Step 1: Write failing ownership tests**
 
 Cover owner-only role change/removal/policy; reject `OWNER` as collaborator role; owner cannot be removed; response lists owner plus collaborators and effective capabilities.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `cd backend; npm test -- workspace.service.spec.ts --runInBand`
 
 Expected: FAIL because member APIs are absent.
 
-- [ ] **Step 3: Implement DTOs and service methods**
+- [x] **Step 3: Implement DTOs and service methods**
 
 `UpdateMemberDto.role` accepts only `EDITOR|VIEWER`; policy DTO validates a boolean. Use `AuthorizationService.require(..., 'members:manage'|'policy:manage')`. Apply update/delete with workspace-scoped composite lookup and record audit events.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `cd backend; npm test -- workspace.service.spec.ts --runInBand; npm run build`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/workspace

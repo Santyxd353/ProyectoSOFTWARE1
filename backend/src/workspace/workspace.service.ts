@@ -1,10 +1,21 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role } from '@prisma/client';
+import { AuditAction, Role } from '@prisma/client';
+import { AuthorizationService } from '../authorization/authorization.service';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class WorkspaceService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly authorization: AuthorizationService,
+    private readonly audit: AuditService,
+  ) {}
 
   async createWorkspace(userId: string, name: string, description?: string) {
     return this.prisma.workspace.create({
@@ -129,18 +140,14 @@ export class WorkspaceService {
       throw new NotFoundException('Workspace not found');
     }
 
-    // Check if user has access
-    const hasAccess = workspace.ownerId === userId ||
-      workspace.collaborators.some(c => c.userId === userId);
-
-    if (!hasAccess) {
-      throw new ForbiddenException('Access denied to this workspace');
-    }
-
-    return workspace;
+    const access = await this.authorization.getAccess(workspaceId, userId);
+    return { ...workspace, currentUserRole: access.role };
   }
 
   async addCollaborator(workspaceId: string, ownerId: string, email: string, role: Role = Role.VIEWER) {
+    if (role === Role.OWNER) {
+      throw new BadRequestException('OWNER cannot be assigned to a collaborator');
+    }
     // Verify ownership
     const workspace = await this.prisma.workspace.findUnique({
       where: { id: workspaceId, ownerId },
@@ -190,5 +197,125 @@ export class WorkspaceService {
         },
       },
     });
+  }
+
+  async listMembers(workspaceId: string, userId: string) {
+    const access = await this.authorization.getAccess(workspaceId, userId);
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      include: {
+        owner: {
+          select: { id: true, name: true, email: true, avatar: true },
+        },
+        collaborators: {
+          orderBy: { joinedAt: 'asc' },
+          include: {
+            user: {
+              select: { id: true, name: true, email: true, avatar: true },
+            },
+          },
+        },
+      },
+    });
+    if (!workspace) throw new NotFoundException('Workspace not found');
+
+    return {
+      workspaceId,
+      currentUserRole: access.role,
+      allowViewerComments: workspace.allowViewerComments,
+      members: [
+        {
+          id: workspace.owner.id,
+          userId: workspace.owner.id,
+          role: Role.OWNER,
+          joinedAt: null,
+          user: workspace.owner,
+        },
+        ...workspace.collaborators.map((member) => ({
+          id: member.id,
+          userId: member.userId,
+          role: member.role,
+          joinedAt: member.joinedAt,
+          user: member.user,
+        })),
+      ],
+    };
+  }
+
+  async updateMemberRole(
+    workspaceId: string,
+    actorId: string,
+    memberId: string,
+    role: Role,
+  ) {
+    if (role === Role.OWNER) {
+      throw new BadRequestException('OWNER cannot be assigned to a collaborator');
+    }
+    await this.authorization.require(workspaceId, actorId, 'members:manage');
+    const member = await this.prisma.workspaceCollaborator.findFirst({
+      where: { id: memberId, workspaceId },
+    });
+    if (!member) throw new NotFoundException('Workspace member not found');
+
+    const updated = await this.prisma.workspaceCollaborator.update({
+      where: { id: member.id },
+      data: { role },
+      include: {
+        user: { select: { id: true, name: true, email: true, avatar: true } },
+      },
+    });
+    await this.audit.record({
+      workspaceId,
+      actorId,
+      action: AuditAction.MEMBER_ROLE_UPDATED,
+      entityType: 'WorkspaceCollaborator',
+      entityId: member.id,
+      metadata: { previousRole: member.role, role },
+    });
+    return updated;
+  }
+
+  async removeMember(
+    workspaceId: string,
+    actorId: string,
+    memberId: string,
+  ) {
+    await this.authorization.require(workspaceId, actorId, 'members:manage');
+    const member = await this.prisma.workspaceCollaborator.findFirst({
+      where: { id: memberId, workspaceId },
+    });
+    if (!member) throw new NotFoundException('Workspace member not found');
+    await this.prisma.workspaceCollaborator.delete({ where: { id: member.id } });
+    await this.audit.record({
+      workspaceId,
+      actorId,
+      action: AuditAction.MEMBER_REMOVED,
+      entityType: 'WorkspaceCollaborator',
+      entityId: member.id,
+      metadata: { role: member.role },
+    });
+    return { message: 'Member removed' };
+  }
+
+  async updateRepositoryPolicy(
+    workspaceId: string,
+    actorId: string,
+    allowViewerComments: boolean,
+  ) {
+    await this.authorization.require(workspaceId, actorId, 'policy:manage');
+    const workspace = await this.prisma.workspace.update({
+      where: { id: workspaceId },
+      data: { allowViewerComments },
+      select: { id: true, allowViewerComments: true },
+    });
+    await this.audit.record({
+      workspaceId,
+      actorId,
+      action: AuditAction.REPOSITORY_POLICY_UPDATED,
+      entityType: 'Workspace',
+      entityId: workspaceId,
+      metadata: { allowViewerComments },
+    });
+    return workspace;
   }
 }
