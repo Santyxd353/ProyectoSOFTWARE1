@@ -585,29 +585,29 @@ git commit -m "feat: integrate repository and member controls"
 **Interfaces:**
 - Produces: reproducible local setup, artifact storage configuration, migration command, and checked completion list.
 
-- [ ] **Step 1: Run complete backend verification**
+- [x] **Step 1: Run complete backend verification**
 
 Run: `cd backend; npx prisma format; npx prisma validate; npm test -- --runInBand; npm run build`
 
 Expected: all exit 0 with no failed tests.
 
-- [ ] **Step 2: Run complete frontend verification**
+- [x] **Step 2: Run complete frontend verification**
 
 Run: `cd frontend; npm test; npm run type-check; npm run build`
 
 Expected: all exit 0.
 
-- [ ] **Step 3: Inspect repository hygiene**
+- [x] **Step 3: Inspect repository hygiene**
 
 Run: `git diff --check; git status --short; git check-ignore backend/artifacts/probe.bin`
 
 Expected: no whitespace errors; generated artifacts ignored; only intended files changed.
 
-- [ ] **Step 4: Document exact startup**
+- [x] **Step 4: Document exact startup**
 
 README documents `DATABASE_URL`, `JWT_SECRET`, `ARTIFACT_STORAGE_PATH`, `npx prisma migrate deploy`, backend/frontend startup, repository permission matrix, and legacy ZIP compatibility. It explicitly states that GCS, XMI, mobile, offline AI, and deployment remain later documented phases.
 
-- [ ] **Step 5: Mark completed plan checkboxes and commit**
+- [x] **Step 5: Mark completed plan checkboxes and commit**
 
 ```bash
 git add README.md docs/README.md .gitignore docs/superpowers/plans/2026-09-12-internal-code-repository-implementation.md

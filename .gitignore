@@ -18,6 +18,7 @@ coverage/
 
 # Generated content and caches
 generated-projects/
+artifacts/
 *.tsbuildinfo
 .cache/
 .angular/
