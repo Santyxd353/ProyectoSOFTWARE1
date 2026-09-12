@@ -479,7 +479,7 @@ git commit -m "fix: authenticate realtime collaboration"
 **Interfaces:**
 - Produces typed `repositoryAPI`, deterministic `buildRepositoryTree(files)`, and `CodeRepositoryPanel({ workspaceId, role, allowViewerComments })`.
 
-- [ ] **Step 1: Write failing tree tests**
+- [x] **Step 1: Write failing tree tests**
 
 ```js
 test('builds sorted nested folders from normalized paths', () => {
@@ -495,27 +495,27 @@ test('builds sorted nested folders from normalized paths', () => {
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `cd frontend; npm test`
 
 Expected: repository tree test FAIL because module does not exist.
 
-- [ ] **Step 3: Implement types, API, and tree utility**
+- [x] **Step 3: Implement types, API, and tree utility**
 
 Define `RevisionSummary`, `RevisionFile`, `RevisionTree`, `FileContent`, `RevisionDiff`, `ReviewComment`, and role capability helpers matching backend DTOs. Add list/get/tree/read/compare/download/restore/comment methods to `repositoryAPI`; use blob response for downloads.
 
-- [ ] **Step 4: Implement focused read-only components**
+- [x] **Step 4: Implement focused read-only components**
 
 `FileTree` handles keyboard selection and nested disclosure. `FileViewer` shows numbered escaped text or binary metadata. `RevisionCompare` renders per-file status and unified patch in `<pre>`. `CommentPanel` validates 1–4000 trimmed characters and respects viewer policy. `CodeRepositoryPanel` owns loading/error/empty/selection states and subscribes to `review_comment_created`.
 
-- [ ] **Step 5: Verify GREEN**
+- [x] **Step 5: Verify GREEN**
 
 Run: `cd frontend; npm test; npm run type-check; npm run build`
 
 Expected: tests, TypeScript, and Next build pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/types/repository.ts frontend/lib frontend/tests frontend/components/repository

@@ -2,6 +2,13 @@ import axios from 'axios';
 import { AuthResponse, LoginData, RegisterData } from '@/types/auth';
 import { Workspace, CreateWorkspaceData } from '@/types/workspace';
 import { Diagram } from '@/types/uml';
+import {
+  ReviewComment,
+  RevisionComparison,
+  RevisionFile,
+  RevisionFileContent,
+  RevisionSummary,
+} from '@/types/repository';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -167,6 +174,104 @@ export const codeGenAPI = {
 
   getGeneratedProjects: async () => {
     const response = await api.get('/code-generation/projects');
+    return response.data;
+  },
+};
+
+export const repositoryAPI = {
+  listRevisions: async (
+    workspaceId: string,
+    diagramId?: string,
+  ): Promise<RevisionSummary[]> => {
+    const response = await api.get(`/workspaces/${workspaceId}/revisions`, {
+      params: diagramId ? { diagramId } : undefined,
+    });
+    return response.data;
+  },
+
+  getRevision: async (
+    workspaceId: string,
+    revisionId: string,
+  ): Promise<RevisionSummary> => {
+    const response = await api.get(
+      `/workspaces/${workspaceId}/revisions/${revisionId}`,
+    );
+    return response.data;
+  },
+
+  getTree: async (
+    workspaceId: string,
+    revisionId: string,
+  ): Promise<RevisionFile[]> => {
+    const response = await api.get(
+      `/workspaces/${workspaceId}/revisions/${revisionId}/tree`,
+    );
+    return response.data;
+  },
+
+  readFile: async (
+    workspaceId: string,
+    revisionId: string,
+    fileId: string,
+  ): Promise<RevisionFileContent> => {
+    const response = await api.get(
+      `/workspaces/${workspaceId}/revisions/${revisionId}/files/${fileId}`,
+    );
+    return response.data;
+  },
+
+  compare: async (
+    workspaceId: string,
+    base: string,
+    target: string,
+    fileId?: string,
+  ): Promise<RevisionComparison> => {
+    const response = await api.get(
+      `/workspaces/${workspaceId}/revisions/compare`,
+      { params: { base, target, ...(fileId ? { fileId } : {}) } },
+    );
+    return response.data;
+  },
+
+  download: async (workspaceId: string, revisionId: string): Promise<Blob> => {
+    const response = await api.get(
+      `/workspaces/${workspaceId}/revisions/${revisionId}/download`,
+      { responseType: 'blob' },
+    );
+    return response.data;
+  },
+
+  restore: async (
+    workspaceId: string,
+    revisionId: string,
+  ): Promise<RevisionSummary> => {
+    const response = await api.post(
+      `/workspaces/${workspaceId}/revisions/${revisionId}/restore`,
+    );
+    return response.data;
+  },
+
+  listComments: async (
+    workspaceId: string,
+    revisionId: string,
+    fileId?: string,
+  ): Promise<ReviewComment[]> => {
+    const response = await api.get(
+      `/workspaces/${workspaceId}/revisions/${revisionId}/comments`,
+      { params: fileId ? { fileId } : undefined },
+    );
+    return response.data;
+  },
+
+  createComment: async (
+    workspaceId: string,
+    revisionId: string,
+    data: { fileId: string; line?: number; body: string },
+  ): Promise<ReviewComment> => {
+    const response = await api.post(
+      `/workspaces/${workspaceId}/revisions/${revisionId}/comments`,
+      data,
+    );
     return response.data;
   },
 };
