@@ -156,17 +156,17 @@ git commit -m "feat: add typed bilingual translation core"
 - Consumes: Task 1 exports.
 - Produces: `useI18n(): { locale; setLocale; t; formatDate }` and `<LanguageToggle />`.
 
-- [ ] **Step 1: Add failing persistence assertions**
+- [x] **Step 1: Add failing persistence assertions**
 
 Extend `i18n.test.mjs` with a fake storage/root/cookie target. Assert that `persistLocale('es', target)` writes `uml-studio-locale=es`, sets `root.lang` to `es`, and produces a cookie containing `SameSite=Lax` and `Max-Age=31536000`.
 
-- [ ] **Step 2: Run the focused test and confirm RED**
+- [x] **Step 2: Run the focused test and confirm RED**
 
 Run: `cd frontend && node --no-warnings --test --experimental-strip-types tests/i18n.test.mjs`
 
 Expected: FAIL until the persistence target contract and cookie output are complete.
 
-- [ ] **Step 3: Implement provider, server initialization, and selector**
+- [x] **Step 3: Implement provider, server initialization, and selector**
 
 `layout.tsx` must read `uml-studio-locale` from `cookies()` and `accept-language` from `headers()`, resolve them through `resolveLocale`, set `<html lang={initialLocale}>`, and wrap children in `<I18nProvider initialLocale={initialLocale}>`.
 
@@ -174,13 +174,13 @@ Expected: FAIL until the persistence target contract and cookie output are compl
 
 Replace the fixed Spanish accessible labels in `ThemeToggle` with `t('theme.toLight')` and `t('theme.toDark')`.
 
-- [ ] **Step 4: Verify selector infrastructure**
+- [x] **Step 4: Verify selector infrastructure**
 
 Run: `cd frontend && npm test -- --run && npm run type-check && npm run build`
 
 Expected: tests PASS; provider compiles in App Router; production build exits 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/app/layout.tsx frontend/components/i18n frontend/components/theme/ThemeToggle.tsx frontend/tests/i18n.test.mjs

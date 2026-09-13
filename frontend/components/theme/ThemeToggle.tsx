@@ -8,8 +8,10 @@ import {
   THEME_STORAGE_KEY,
   type Theme,
 } from '@/lib/theme';
+import { useI18n } from '@/components/i18n/I18nProvider';
 
 export default function ThemeToggle() {
+  const { t } = useI18n();
   const [theme, setTheme] = useState<Theme>('light');
   const [mounted, setMounted] = useState(false);
 
@@ -42,7 +44,7 @@ export default function ThemeToggle() {
   };
 
   const isDark = mounted && theme === 'dark';
-  const label = isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro';
+  const label = isDark ? t('theme.toLight') : t('theme.toDark');
 
   return (
     <button

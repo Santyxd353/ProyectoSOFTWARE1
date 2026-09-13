@@ -1,6 +1,9 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import { cookies, headers } from 'next/headers';
+import { I18nProvider } from '@/components/i18n/I18nProvider';
+import { LOCALE_COOKIE_KEY, resolveLocale } from '@/lib/i18n/core.ts';
 import { THEME_STORAGE_KEY } from '@/lib/theme';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -29,13 +32,18 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const initialLocale = resolveLocale(
+    cookies().get(LOCALE_COOKIE_KEY)?.value,
+    headers().get('accept-language'),
+  );
+
   return (
-    <html lang="es" suppressHydrationWarning>
+    <html lang={initialLocale} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className={inter.className}>
-        {children}
+        <I18nProvider initialLocale={initialLocale}>{children}</I18nProvider>
       </body>
     </html>
   );

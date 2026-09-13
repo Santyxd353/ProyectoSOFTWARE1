@@ -29,3 +29,21 @@ test('formats dates with explicit regional conventions', () => {
   assert.equal(core.formatLocalizedDate?.('es', date), '13/09/2026');
   assert.equal(core.formatLocalizedDate?.('en', date), '09/13/2026');
 });
+
+test('persists locale to storage, document language and cookie', () => {
+  const writes = new Map();
+  const cookies = [];
+  const target = {
+    storage: { setItem: (key, value) => writes.set(key, value) },
+    root: { lang: 'en' },
+    writeCookie: (value) => cookies.push(value),
+  };
+
+  core.persistLocale?.('es', target);
+
+  assert.equal(writes.get('uml-studio-locale'), 'es');
+  assert.equal(target.root.lang, 'es');
+  assert.match(cookies[0] ?? '', /^uml-studio-locale=es;/);
+  assert.match(cookies[0] ?? '', /SameSite=Lax/);
+  assert.match(cookies[0] ?? '', /Max-Age=31536000/);
+});
