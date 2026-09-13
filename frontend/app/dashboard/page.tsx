@@ -6,6 +6,8 @@ import { Plus, X } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { useWorkspaceStore } from '@/stores/workspace';
 import ThemeToggle from '@/components/theme/ThemeToggle';
+import LanguageToggle from '@/components/i18n/LanguageToggle';
+import { useI18n } from '@/components/i18n/I18nProvider';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -14,6 +16,7 @@ export default function DashboardPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', description: '' });
   const [isCreating, setIsCreating] = useState(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     if (!user) {
@@ -41,7 +44,7 @@ export default function DashboardPage() {
       router.push(`/workspace/${newWorkspace.id}`);
     } catch (error) {
       console.error('Error creating workspace:', error);
-      alert('Failed to create workspace. Please try again.');
+      alert(t('workspaceForm.createError'));
     } finally {
       setIsCreating(false);
     }
@@ -61,6 +64,7 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        <span className="sr-only">{t('common.loading')}</span>
       </div>
     );
   }
@@ -73,19 +77,20 @@ export default function DashboardPage() {
           <div className="flex justify-between items-center py-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                UML Platform Dashboard
+                {t('dashboard.title')}
               </h1>
               <p className="mt-1 text-sm text-gray-500">
-                Welcome back, {user.name}
+                {t('dashboard.welcomeBack', { name: user.name })}
               </p>
             </div>
             <div className="flex items-center gap-3">
+              <LanguageToggle />
               <ThemeToggle />
               <button
                 onClick={handleLogout}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium"
               >
-                Logout
+                {t('dashboard.logout')}
               </button>
             </div>
           </div>
@@ -98,6 +103,7 @@ export default function DashboardPage() {
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              <span className="sr-only">{t('common.loading')}</span>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -106,7 +112,7 @@ export default function DashboardPage() {
                 <div className="px-4 py-5 sm:p-6">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg leading-6 font-medium text-gray-900">
-                      My Workspaces
+                      {t('dashboard.myWorkspaces')}
                     </h3>
                     {workspaces.owned.length > 0 && (
                       <button
@@ -114,20 +120,20 @@ export default function DashboardPage() {
                         className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center space-x-2"
                       >
                         <Plus size={16} />
-                        <span>New Workspace</span>
+                        <span>{t('dashboard.newWorkspace')}</span>
                       </button>
                     )}
                   </div>
                   <div className="mt-5">
                     {workspaces.owned.length === 0 ? (
                       <div className="text-center py-8">
-                        <p className="text-gray-500">No workspaces yet</p>
+                        <p className="text-gray-500">{t('dashboard.emptyOwned')}</p>
                         <button
                           onClick={openCreateModal}
                           className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium inline-flex items-center space-x-2"
                         >
                           <Plus size={16} />
-                          <span>Create Your First Workspace</span>
+                          <span>{t('dashboard.createFirst')}</span>
                         </button>
                       </div>
                     ) : (
@@ -145,9 +151,9 @@ export default function DashboardPage() {
                               {workspace.description}
                             </p>
                             <div className="mt-2 flex items-center text-xs text-gray-400">
-                              <span>{workspace._count.diagrams} diagrams</span>
+                              <span>{t(workspace._count.diagrams === 1 ? 'dashboard.diagramCountOne' : 'dashboard.diagramCount', { count: workspace._count.diagrams })}</span>
                               <span className="mx-2">•</span>
-                              <span>{workspace._count.collaborators} collaborators</span>
+                              <span>{t(workspace._count.collaborators === 1 ? 'dashboard.collaboratorCountOne' : 'dashboard.collaboratorCount', { count: workspace._count.collaborators })}</span>
                             </div>
                           </div>
                         ))}
@@ -161,12 +167,12 @@ export default function DashboardPage() {
               <div className="bg-card overflow-hidden border border-border shadow-sm rounded-lg">
                 <div className="px-4 py-5 sm:p-6">
                   <h3 className="text-lg leading-6 font-medium text-gray-900">
-                    Shared with Me
+                    {t('dashboard.sharedWithMe')}
                   </h3>
                   <div className="mt-5">
                     {workspaces.collaborated.length === 0 ? (
                       <div className="text-center py-8">
-                        <p className="text-gray-500">No shared workspaces</p>
+                        <p className="text-gray-500">{t('dashboard.emptyShared')}</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -181,16 +187,16 @@ export default function DashboardPage() {
                                 {workspace.name}
                               </h4>
                               <span className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded">
-                                Colaborador
+                                {t('dashboard.collaborator')}
                               </span>
                             </div>
                             <p className="text-sm text-gray-500">
                               {workspace.description}
                             </p>
                             <div className="mt-2 flex items-center text-xs text-gray-400">
-                              <span>Propietario: {workspace.owner.name}</span>
+                              <span>{t('dashboard.owner', { name: workspace.owner.name })}</span>
                               <span className="mx-2">•</span>
-                              <span>{workspace._count.diagrams} diagramas</span>
+                              <span>{t(workspace._count.diagrams === 1 ? 'dashboard.diagramCountOne' : 'dashboard.diagramCount', { count: workspace._count.diagrams })}</span>
                             </div>
                           </div>
                         ))}
@@ -209,9 +215,10 @@ export default function DashboardPage() {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border border-border w-96 shadow-xl rounded-lg bg-card">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">Create New Workspace</h3>
+              <h3 className="text-lg font-medium text-gray-900">{t('workspaceForm.title')}</h3>
               <button
                 onClick={closeCreateModal}
+                aria-label={t('common.close')}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X size={20} />
@@ -221,7 +228,7 @@ export default function DashboardPage() {
             <form onSubmit={handleCreateWorkspace}>
               <div className="mb-4">
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                  Workspace Name *
+                  {t('workspaceForm.name')} *
                 </label>
                 <input
                   type="text"
@@ -229,21 +236,21 @@ export default function DashboardPage() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter workspace name"
+                  placeholder={t('workspaceForm.namePlaceholder')}
                   required
                 />
               </div>
 
               <div className="mb-6">
                 <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
+                  {t('workspaceForm.description')}
                 </label>
                 <textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter workspace description (optional)"
+                  placeholder={t('workspaceForm.descriptionPlaceholder')}
                   rows={3}
                 />
               </div>
@@ -254,7 +261,7 @@ export default function DashboardPage() {
                   onClick={closeCreateModal}
                   className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -264,12 +271,12 @@ export default function DashboardPage() {
                   {isCreating ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Creating...</span>
+                      <span>{t('workspaceForm.creating')}</span>
                     </>
                   ) : (
                     <>
                       <Plus size={16} />
-                      <span>Create Workspace</span>
+                      <span>{t('workspaceForm.create')}</span>
                     </>
                   )}
                 </button>

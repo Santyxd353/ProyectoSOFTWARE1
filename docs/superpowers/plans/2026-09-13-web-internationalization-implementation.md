@@ -204,31 +204,31 @@ git commit -m "feat: add persistent language selector"
 - Consumes: `useI18n`, `LanguageToggle`, shared catalogs.
 - Produces: fully bilingual public/auth/dashboard screens.
 
-- [ ] **Step 1: Add a failing required-key contract**
+- [x] **Step 1: Add a failing required-key contract**
 
 Add a table-driven assertion requiring these namespaces and keys in both catalogs: `auth.login.*`, `auth.register.*`, `validation.nameMin`, `validation.invalidEmail`, `validation.passwordMin`, `dashboard.title`, `dashboard.welcomeBack`, `dashboard.logout`, `dashboard.myWorkspaces`, `dashboard.sharedWithMe`, `dashboard.newWorkspace`, `dashboard.createFirst`, `dashboard.emptyOwned`, `dashboard.emptyShared`, `dashboard.owner`, `dashboard.diagramCount`, `dashboard.collaboratorCount`, `workspaceForm.name`, `workspaceForm.description`, `workspaceForm.create`, and `workspaceForm.createError`.
 
-- [ ] **Step 2: Run the i18n test and confirm RED**
+- [x] **Step 2: Run the i18n test and confirm RED**
 
 Run: `cd frontend && node --no-warnings --test --experimental-strip-types tests/i18n.test.mjs`
 
 Expected: FAIL listing the first missing authentication/dashboard key.
 
-- [ ] **Step 3: Add exact English and Spanish catalog entries**
+- [x] **Step 3: Add exact English and Spanish catalog entries**
 
 Use natural Spanish such as `Inicia sesión en tu cuenta`, `Crear una cuenta`, `Bienvenido de nuevo, {name}`, `Mis espacios de trabajo`, `Compartidos conmigo`, `Nuevo espacio`, `Nombre del espacio`, and `No se pudo crear el espacio. Inténtalo nuevamente.` English values must preserve the current meaning.
 
-- [ ] **Step 4: Replace visible literals and localize validation**
+- [x] **Step 4: Replace visible literals and localize validation**
 
 Move Zod schema creation inside login/register components with `useMemo(() => z.object(...t(...)), [t])`. Place `<LanguageToggle />` beside `<ThemeToggle />`. Replace headings, labels, placeholders, buttons, loading states, empty states, counters, modal copy, alerts, and accessibility labels with `t`. Use separate singular/plural count keys selected from the numeric value.
 
-- [ ] **Step 5: Verify the batch**
+- [x] **Step 5: Verify the batch**
 
 Run: `cd frontend && npm test -- --run && npm run type-check`
 
 Expected: all tests PASS and no translation-key type errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/app/page.tsx frontend/app/login/page.tsx frontend/app/register/page.tsx frontend/app/dashboard/page.tsx frontend/lib/i18n/catalogs frontend/tests/i18n.test.mjs

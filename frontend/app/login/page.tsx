@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
@@ -9,16 +9,18 @@ import { z } from 'zod';
 import { useAuthStore } from '@/stores/auth';
 import { LoginData } from '@/types/auth';
 import ThemeToggle from '@/components/theme/ThemeToggle';
-
-const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
+import LanguageToggle from '@/components/i18n/LanguageToggle';
+import { useI18n } from '@/components/i18n/I18nProvider';
 
 export default function LoginPage() {
   const router = useRouter();
   const { login, user, isLoading, error, clearError } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
+  const { t } = useI18n();
+  const loginSchema = useMemo(() => z.object({
+    email: z.string().email(t('validation.invalidEmail')),
+    password: z.string().min(6, t('validation.passwordMin')),
+  }), [t]);
 
   const {
     register,
@@ -49,21 +51,22 @@ export default function LoginPage() {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="absolute right-4 top-4 sm:right-6 sm:top-6">
+      <div className="absolute right-4 top-4 flex items-center gap-2 sm:right-6 sm:top-6">
+        <LanguageToggle />
         <ThemeToggle />
       </div>
       <div className="max-w-md w-full space-y-8 rounded-xl border border-border bg-card p-8 shadow-lg">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
+            {t('auth.login.title')}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
+            {t('common.or')}{' '}
             <Link
               href="/register"
               className="font-medium text-primary hover:text-primary/80"
             >
-              create a new account
+              {t('auth.login.createAccount')}
             </Link>
           </p>
         </div>
@@ -78,14 +81,14 @@ export default function LoginPage() {
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
               <label htmlFor="email" className="sr-only">
-                Email address
+                {t('auth.login.email')}
               </label>
               <input
                 {...register('email')}
                 type="email"
                 autoComplete="email"
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm"
-                placeholder="Email address"
+                placeholder={t('auth.login.emailPlaceholder')}
               />
               {errors.email && (
                 <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
@@ -93,7 +96,7 @@ export default function LoginPage() {
             </div>
             <div>
               <label htmlFor="password" className="sr-only">
-                Password
+                {t('auth.login.password')}
               </label>
               <div className="relative">
                 <input
@@ -101,14 +104,15 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm"
-                  placeholder="Password"
+                  placeholder={t('auth.login.passwordPlaceholder')}
                 />
                 <button
                   type="button"
                   className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? t('common.hide') : t('common.show')}
                 >
-                  {showPassword ? 'Hide' : 'Show'}
+                  {showPassword ? t('common.hide') : t('common.show')}
                 </button>
               </div>
               {errors.password && (
@@ -126,10 +130,10 @@ export default function LoginPage() {
               {isLoading ? (
                 <>
                   <div className="animate-spin -ml-1 mr-3 h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-                  Signing in...
+                  {t('auth.login.submitting')}
                 </>
               ) : (
-                'Sign in'
+                t('auth.login.submit')
               )}
             </button>
           </div>

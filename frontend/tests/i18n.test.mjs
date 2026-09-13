@@ -47,3 +47,39 @@ test('persists locale to storage, document language and cookie', () => {
   assert.match(cookies[0] ?? '', /SameSite=Lax/);
   assert.match(cookies[0] ?? '', /Max-Age=31536000/);
 });
+
+test('catalogs include authentication and dashboard contracts', () => {
+  const requiredKeys = [
+    'auth.login.title',
+    'auth.login.email',
+    'auth.login.password',
+    'auth.login.submit',
+    'auth.register.title',
+    'auth.register.name',
+    'auth.register.submit',
+    'validation.nameMin',
+    'validation.invalidEmail',
+    'validation.passwordMin',
+    'dashboard.title',
+    'dashboard.welcomeBack',
+    'dashboard.logout',
+    'dashboard.myWorkspaces',
+    'dashboard.sharedWithMe',
+    'dashboard.newWorkspace',
+    'dashboard.createFirst',
+    'dashboard.emptyOwned',
+    'dashboard.emptyShared',
+    'dashboard.owner',
+    'dashboard.diagramCount',
+    'dashboard.collaboratorCount',
+    'workspaceForm.name',
+    'workspaceForm.description',
+    'workspaceForm.create',
+    'workspaceForm.createError',
+  ];
+
+  for (const key of requiredKeys) {
+    assert.equal(typeof enModule.en?.[key], 'string', `missing English key: ${key}`);
+    assert.equal(typeof esModule.es?.[key], 'string', `missing Spanish key: ${key}`);
+  }
+});
