@@ -31,12 +31,43 @@ interface Template {
   prompt: string;
 }
 
+const templateTranslationKeys: Record<string, {
+  name: TranslationKey;
+  description: TranslationKey;
+  prompt: TranslationKey;
+}> = {
+  farmacia: {
+    name: 'ai.template.pharmacy.name',
+    description: 'ai.template.pharmacy.description',
+    prompt: 'ai.template.pharmacy.prompt',
+  },
+  ferreteria: {
+    name: 'ai.template.hardware.name',
+    description: 'ai.template.hardware.description',
+    prompt: 'ai.template.hardware.prompt',
+  },
+  ecommerce: {
+    name: 'ai.template.ecommerce.name',
+    description: 'ai.template.ecommerce.description',
+    prompt: 'ai.template.ecommerce.prompt',
+  },
+  biblioteca: {
+    name: 'ai.template.library.name',
+    description: 'ai.template.library.description',
+    prompt: 'ai.template.library.prompt',
+  },
+  restaurante: {
+    name: 'ai.template.restaurant.name',
+    description: 'ai.template.restaurant.description',
+    prompt: 'ai.template.restaurant.prompt',
+  },
+};
+
 export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, isOpen }: AIChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -67,23 +98,21 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
 
   const loadInitialData = async () => {
     try {
-      // Load templates and suggestions
-      const [templatesResponse, suggestionsResponse] = await Promise.all([
-        aiAPI.getTemplates(),
-        aiAPI.getSuggestions()
-      ]);
+      const templatesResponse = await aiAPI.getTemplates();
 
       setTemplates(templatesResponse.templates || []);
-      setSuggestions(suggestionsResponse.suggestions || []);
 
-      // Add welcome message with loaded suggestions
       const welcomeMessage: ChatMessage = {
         id: '1',
         type: 'ai',
         content: '',
         translationKey: 'ai.welcome',
         timestamp: new Date(),
-        suggestions: suggestionsResponse.suggestions?.slice(0, 3) || []
+        suggestionKeys: [
+          'ai.fallback.shop',
+          'ai.fallback.library',
+          'ai.fallback.blog',
+        ],
       };
 
       setMessages([welcomeMessage]);
@@ -399,14 +428,19 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
                 <button
                   key={template.id}
                   onClick={() => {
-                    handleSendMessage(template.prompt);
+                    const keys = templateTranslationKeys[template.id];
+                    handleSendMessage(keys ? t(keys.prompt) : template.prompt);
                     setShowTemplates(false);
                   }}
                   className="text-left text-xs p-2 bg-card border border-border rounded hover:bg-muted transition-colors"
                   disabled={isLoading}
                 >
-                  <div className="font-medium text-gray-900">{template.name}</div>
-                  <div className="text-gray-600 truncate">{template.description}</div>
+                  <div className="font-medium text-gray-900">
+                    {templateTranslationKeys[template.id] ? t(templateTranslationKeys[template.id].name) : template.name}
+                  </div>
+                  <div className="text-gray-600 truncate">
+                    {templateTranslationKeys[template.id] ? t(templateTranslationKeys[template.id].description) : template.description}
+                  </div>
                 </button>
               ))}
             </div>

@@ -396,7 +396,7 @@ git commit -m "feat: translate AI and code generation panels"
 - Consumes: all previous tasks.
 - Produces: verified bilingual application and operator instructions.
 
-- [ ] **Step 1: Run catalog and frontend verification**
+- [x] **Step 1: Run catalog and frontend verification**
 
 Run:
 
@@ -409,25 +409,25 @@ npm run build
 
 Expected: zero failed tests, zero TypeScript errors, production build exit 0.
 
-- [ ] **Step 2: Run backend regression tests**
+- [x] **Step 2: Run backend regression tests**
 
 Run: `cd ../backend && npm test -- --runInBand && npm run build`
 
 Expected: all backend tests PASS and Nest build exits 0.
 
-- [ ] **Step 3: Audit every frontend surface manually**
+- [x] **Step 3: Audit every frontend surface manually**
 
 Start the local system with `./INICIAR_LOCAL.cmd`. In English and Spanish, visit `/login`, `/register`, `/dashboard`, one workspace's Diagramas/Código/Miembros tabs, and one diagram editor. Open class and relationship dialogs, AI chat, generation panel, revision comparison, file comments, invitations, and delete confirmations. Confirm there are no frontend-owned mixed-language strings, the selection changes immediately, and `html[lang]` matches the active locale.
 
-- [ ] **Step 4: Verify persistence and browser fallback**
+- [x] **Step 4: Verify persistence and browser fallback**
 
 Select Spanish, reload, and confirm Spanish remains. Clear `uml-studio-locale` from localStorage and cookie, set browser preference to Spanish, reload, and confirm Spanish. Repeat with an unsupported language and confirm English.
 
-- [ ] **Step 5: Update README**
+- [x] **Step 5: Update README**
 
 Add a `## Idiomas` section stating that English and Spanish cover the full web app, the first visit follows the browser, selection persists locally, and the switch appears beside the theme control.
 
-- [ ] **Step 6: Run repository hygiene checks and commit**
+- [x] **Step 6: Run repository hygiene checks and commit**
 
 Run: `git diff --check && git status --short`
 

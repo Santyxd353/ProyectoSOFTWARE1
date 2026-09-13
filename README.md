@@ -35,6 +35,10 @@ docs/      PUDS y documentación técnica del proyecto
 
 Estas ampliaciones siguen documentadas como entregas posteriores; no forman parte de la implementación actual.
 
+## Idiomas
+
+La aplicación web está disponible completamente en español e inglés. En la primera visita detecta el idioma preferido del navegador y usa inglés cuando la preferencia no es compatible. El selector `ES | EN`, ubicado junto al control de tema, aplica el cambio inmediatamente y conserva la elección en el navegador para las siguientes visitas.
+
 ## Repositorio interno
 
 Cada generación Spring Boot o Flutter crea una revisión vinculada con proyecto, diagrama, versión UML, autor y generador. Los archivos se guardan mediante una abstracción de almacenamiento: PostgreSQL conserva metadatos, permisos, comentarios y auditoría; `ARTIFACT_STORAGE_PATH` conserva los bytes durante desarrollo local.

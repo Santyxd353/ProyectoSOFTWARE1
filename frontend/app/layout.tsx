@@ -3,15 +3,21 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { cookies, headers } from 'next/headers';
 import { I18nProvider } from '@/components/i18n/I18nProvider';
-import { LOCALE_COOKIE_KEY, resolveLocale } from '@/lib/i18n/core.ts';
+import { LOCALE_COOKIE_KEY, resolveLocale, translate } from '@/lib/i18n/core.ts';
 import { THEME_STORAGE_KEY } from '@/lib/theme';
 
 const inter = Inter({ subsets: ['latin'] });
 
-export const metadata: Metadata = {
-  title: 'UML Studio',
-  description: 'Diseña y colabora en diagramas UML con asistencia de IA',
-};
+export function generateMetadata(): Metadata {
+  const locale = resolveLocale(
+    cookies().get(LOCALE_COOKIE_KEY)?.value,
+    headers().get('accept-language'),
+  );
+  return {
+    title: 'UML Studio',
+    description: translate(locale, 'app.description'),
+  };
+}
 
 const themeScript = `
   (() => {

@@ -124,6 +124,11 @@ test('catalogs include AI and code-generation contracts', () => {
   const requiredKeys = [
     'ai.title', 'ai.welcome', 'ai.placeholder', 'ai.upload', 'ai.send',
     'ai.thinking', 'ai.imageInvalid', 'ai.diagramApplied',
+    'ai.template.pharmacy.name', 'ai.template.pharmacy.description', 'ai.template.pharmacy.prompt',
+    'ai.template.hardware.name', 'ai.template.hardware.description', 'ai.template.hardware.prompt',
+    'ai.template.ecommerce.name', 'ai.template.ecommerce.description', 'ai.template.ecommerce.prompt',
+    'ai.template.library.name', 'ai.template.library.description', 'ai.template.library.prompt',
+    'ai.template.restaurant.name', 'ai.template.restaurant.description', 'ai.template.restaurant.prompt',
     'generation.title', 'generation.spring.title', 'generation.spring.description',
     'generation.flutter.title', 'generation.flutter.description',
     'generation.generate', 'generation.generating', 'generation.download',
