@@ -255,31 +255,31 @@ git commit -m "feat: translate authentication and dashboard"
 - Consumes: `useI18n`, `formatDate`, shared catalogs.
 - Produces: bilingual workspace and internal repository workflows.
 
-- [ ] **Step 1: Add failing workspace/repository key assertions**
+- [x] **Step 1: Add failing workspace/repository key assertions**
 
 Require keys for `workspace.loading`, `workspace.backToDashboard`, `workspace.tabs.*`, `workspace.stats.*`, `workspace.diagram.*`, `workspace.invite.*`, `workspace.deleteDialog.*`, `members.*`, `repository.empty`, `repository.revision`, `repository.files`, `repository.preview`, `repository.compare.*`, `repository.download`, `repository.restore.*`, `repository.comments.*`, and localized role labels `roles.owner`, `roles.editor`, and `roles.viewer`.
 
-- [ ] **Step 2: Run the i18n test and confirm RED**
+- [x] **Step 2: Run the i18n test and confirm RED**
 
 Run: `cd frontend && node --no-warnings --test --experimental-strip-types tests/i18n.test.mjs`
 
 Expected: FAIL because workspace/repository keys are absent.
 
-- [ ] **Step 3: Add both catalog sections**
+- [x] **Step 3: Add both catalog sections**
 
 Provide equivalent copy for loading, tabs, statistics, creation/invitation, destructive confirmation, permissions, review comments, comparison status, download, and restore. Keep role enum values (`OWNER`, `EDITOR`, `VIEWER`) unchanged; only translate their display labels.
 
-- [ ] **Step 4: Migrate components**
+- [x] **Step 4: Migrate components**
 
 Add `<LanguageToggle />` to the workspace header. Replace all visible literals, `alert`, `confirm`, `aria-label`, `title`, placeholders, and empty states with `t`. Replace every `toLocaleDateString()` in these files with `formatDate`. Preserve dynamic workspace, member, diagram, revision, and file names unchanged.
 
-- [ ] **Step 5: Verify the batch**
+- [x] **Step 5: Verify the batch**
 
 Run: `cd frontend && npm test -- --run && npm run type-check`
 
 Expected: tests and type-check PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/app/workspace/[workspaceId]/page.tsx frontend/components/workspace frontend/components/repository frontend/lib/i18n/catalogs frontend/tests/i18n.test.mjs

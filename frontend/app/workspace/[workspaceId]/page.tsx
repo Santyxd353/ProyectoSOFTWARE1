@@ -12,6 +12,8 @@ import ThemeToggle from '@/components/theme/ThemeToggle';
 import CodeRepositoryPanel from '@/components/repository/CodeRepositoryPanel';
 import MemberManagement from '@/components/workspace/MemberManagement';
 import { Role } from '@/types/workspace';
+import LanguageToggle from '@/components/i18n/LanguageToggle';
+import { useI18n } from '@/components/i18n/I18nProvider';
 
 interface WorkspacePageProps {
   params: {
@@ -34,6 +36,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
   const [diagramToDelete, setDiagramToDelete] = useState<Diagram | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState<'diagrams' | 'code' | 'members'>('diagrams');
+  const { t, formatDate } = useI18n();
 
   useEffect(() => {
     if (!user) {
@@ -67,7 +70,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
       router.push(`/workspace/${params.workspaceId}/diagram/${newDiagram.id}`);
     } catch (error: any) {
       console.error('Error creating diagram:', error);
-      alert(error.response?.data?.message || 'Failed to create diagram');
+      alert(error.response?.data?.message || t('workspace.diagram.createError'));
     } finally {
       setIsCreatingDiagram(false);
     }
@@ -93,10 +96,10 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
       setCollaboratorEmail('');
       setCollaboratorRole('VIEWER');
 
-      alert('Colaborador invitado exitosamente');
+      alert(t('workspace.invite.success'));
     } catch (error: any) {
       console.error('Error inviting collaborator:', error);
-      alert(error.response?.data?.message || 'Error al invitar colaborador');
+      alert(error.response?.data?.message || t('workspace.invite.error'));
     } finally {
       setIsInviting(false);
     }
@@ -116,10 +119,10 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
       setIsDeleteModalOpen(false);
       setDiagramToDelete(null);
 
-      alert('Diagrama eliminado exitosamente');
+      alert(t('workspace.diagram.deleteSuccess'));
     } catch (error: any) {
       console.error('Error deleting diagram:', error);
-      alert(error.response?.data?.message || 'Error al eliminar diagrama');
+      alert(error.response?.data?.message || t('workspace.diagram.deleteError'));
     } finally {
       setIsDeleting(false);
     }
@@ -135,6 +138,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        <span className="sr-only">{t('common.loading')}</span>
       </div>
     );
   }
@@ -144,8 +148,8 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Workspace</h2>
-          <p className="text-gray-600">Please wait while we load your workspace...</p>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">{t('workspace.loading')}</h2>
+          <p className="text-gray-600">{t('workspace.loadingDetail')}</p>
         </div>
       </div>
     );
@@ -167,7 +171,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                 className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
               >
                 <ArrowLeft size={20} />
-                <span>Dashboard</span>
+                <span>{t('workspace.backToDashboard')}</span>
               </button>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">{currentWorkspace.name}</h1>
@@ -175,18 +179,19 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              <LanguageToggle />
               <ThemeToggle />
               {currentRole === Role.OWNER && (
                 <button
                   onClick={() => setIsShareModalOpen(true)}
                   className="flex min-h-11 items-center space-x-2 rounded-md bg-primary px-4 text-primary-foreground shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <Share size={16} />
-                  <span>Compartir</span>
+                  <span>{t('workspace.share')}</span>
                 </button>
               )}
               <button onClick={() => setActiveTab('members')} className="flex min-h-11 items-center space-x-2 rounded-md bg-gray-100 px-4 text-gray-700 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <Settings size={16} />
-                <span>Configuración</span>
+                <span>{t('workspace.settings')}</span>
               </button>
             </div>
           </div>
@@ -196,11 +201,11 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <nav className="mb-6 flex flex-wrap gap-2 border-b border-border" aria-label="Secciones del proyecto">
+          <nav className="mb-6 flex flex-wrap gap-2 border-b border-border" aria-label={t('workspace.sections')}>
             {[
-              { id: 'diagrams' as const, label: 'Diagramas', icon: FileText },
-              { id: 'code' as const, label: 'Código', icon: Code2 },
-              { id: 'members' as const, label: 'Miembros', icon: Users },
+              { id: 'diagrams' as const, label: t('workspace.tabs.diagrams'), icon: FileText },
+              { id: 'code' as const, label: t('workspace.tabs.code'), icon: Code2 },
+              { id: 'members' as const, label: t('workspace.tabs.members'), icon: Users },
             ].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -231,7 +236,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                   </div>
                   <div className="ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Total Diagrams</dt>
+                      <dt className="text-sm font-medium text-gray-500 truncate">{t('workspace.stats.diagrams')}</dt>
                       <dd className="text-lg font-medium text-gray-900">{diagrams.length}</dd>
                     </dl>
                   </div>
@@ -247,7 +252,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                   </div>
                   <div className="ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Collaborators</dt>
+                      <dt className="text-sm font-medium text-gray-500 truncate">{t('workspace.stats.collaborators')}</dt>
                       <dd className="text-lg font-medium text-gray-900">{currentWorkspace.collaborators.length + 1}</dd>
                     </dl>
                   </div>
@@ -263,9 +268,9 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                   </div>
                   <div className="ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Created</dt>
+                      <dt className="text-sm font-medium text-gray-500 truncate">{t('workspace.stats.created')}</dt>
                       <dd className="text-lg font-medium text-gray-900">
-                        {new Date(currentWorkspace.createdAt).toLocaleDateString()}
+                        {formatDate(currentWorkspace.createdAt)}
                       </dd>
                     </dl>
                   </div>
@@ -278,14 +283,14 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
           <div className="bg-card border border-border shadow-sm rounded-lg mb-8">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                Create New Diagram
+                {t('workspace.diagram.new')}
               </h3>
               <div className="flex space-x-3">
                 <input
                   type="text"
                   value={newDiagramName}
                   onChange={(e) => setNewDiagramName(e.target.value)}
-                  placeholder="Enter diagram name..."
+                  placeholder={t('workspace.diagram.namePlaceholder')}
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   onKeyPress={(e) => e.key === 'Enter' && handleCreateDiagram()}
                 />
@@ -299,7 +304,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                   ) : (
                     <Plus size={16} />
                   )}
-                  <span>Create Diagram</span>
+                  <span>{isCreatingDiagram ? t('workspace.diagram.creating') : t('workspace.diagram.create')}</span>
                 </button>
               </div>
             </div>
@@ -309,15 +314,15 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
           <div className="bg-card border border-border shadow-sm rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                UML Diagrams
+                {t('workspace.diagram.list')}
               </h3>
 
               {diagrams.length === 0 ? (
                 <div className="text-center py-12">
                   <FileText className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No diagrams</h3>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">{t('workspace.diagram.empty')}</h3>
                   <p className="mt-1 text-sm text-gray-500">
-                    Get started by creating your first UML diagram.
+                    {t('workspace.diagram.emptyDetail')}
                   </p>
                 </div>
               ) : (
@@ -335,18 +340,19 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                           <button
                             onClick={(e) => openDeleteModal(diagram, e)}
                             className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 rounded"
-                            title="Eliminar diagrama"
+                            title={t('workspace.diagram.deleteLabel')}
+                            aria-label={t('workspace.diagram.deleteLabel')}
                           >
                             <Trash2 size={16} className="text-red-600" />
                           </button>
                         </div>
                       </div>
                       <div className="text-sm text-gray-600 mb-3">
-                        {diagram.data?.classes?.length || 0} classes •{' '}
-                        {diagram.data?.relations?.length || 0} relations
+                        {t((diagram.data?.classes?.length || 0) === 1 ? 'workspace.diagram.classCountOne' : 'workspace.diagram.classCount', { count: diagram.data?.classes?.length || 0 })} •{' '}
+                        {t((diagram.data?.relations?.length || 0) === 1 ? 'workspace.diagram.relationCountOne' : 'workspace.diagram.relationCount', { count: diagram.data?.relations?.length || 0 })}
                       </div>
                       <div className="text-xs text-gray-400">
-                        Updated {new Date(diagram.updatedAt).toLocaleDateString()}
+                        {t('workspace.diagram.updated', { date: formatDate(diagram.updatedAt) })}
                       </div>
                     </div>
                   ))}
@@ -360,7 +366,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
             <div className="bg-card border border-border shadow-sm rounded-lg mt-8">
               <div className="px-4 py-5 sm:p-6">
                 <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                  Collaborators
+                  {t('workspace.collaborators')}
                 </h3>
                 <div className="space-y-3">
                   {/* Owner */}
@@ -376,7 +382,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                         <p className="text-xs text-gray-500">{currentWorkspace.owner.email}</p>
                       </div>
                     </div>
-                    <span className="text-xs text-blue-600 font-medium">Owner</span>
+                    <span className="text-xs text-blue-600 font-medium">{t('roles.owner')}</span>
                   </div>
 
                   {/* Collaborators */}
@@ -393,7 +399,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                           <p className="text-xs text-gray-500">{collaborator.user.email}</p>
                         </div>
                       </div>
-                      <span className="text-xs text-gray-600 font-medium capitalize">{collaborator.role.toLowerCase()}</span>
+                      <span className="text-xs text-gray-600 font-medium">{collaborator.role === Role.EDITOR ? t('roles.editor') : t('roles.viewer')}</span>
                     </div>
                   ))}
                 </div>
@@ -426,9 +432,10 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
           <div className="relative bg-card border border-border rounded-lg shadow-xl w-full max-w-md mx-4">
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">Invitar Colaborador</h3>
+              <h3 className="text-lg font-semibold text-gray-800">{t('workspace.invite.title')}</h3>
               <button
                 onClick={() => setIsShareModalOpen(false)}
+                aria-label={t('common.close')}
                 className="text-gray-400 hover:text-gray-600">
                 <X size={20} />
               </button>
@@ -437,7 +444,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
             <form onSubmit={handleInviteCollaborator} className="p-6">
               <div className="mb-4">
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email del colaborador *
+                  {t('workspace.invite.email')} *
                 </label>
                 <input
                   type="email"
@@ -445,25 +452,25 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                   value={collaboratorEmail}
                   onChange={(e) => setCollaboratorEmail(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-500"
-                  placeholder="colaborador@ejemplo.com"
+                  placeholder={t('workspace.invite.emailPlaceholder')}
                   required
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  El usuario debe estar registrado en la plataforma
+                  {t('workspace.invite.emailHelp')}
                 </p>
               </div>
 
               <div className="mb-6">
                 <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
-                  Rol
+                  {t('workspace.invite.role')}
                 </label>
                 <select
                   id="role"
                   value={collaboratorRole}
                   onChange={(e) => setCollaboratorRole(e.target.value as 'EDITOR' | 'VIEWER')}
                   className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-500">
-                  <option value="VIEWER">Viewer (Solo lectura)</option>
-                  <option value="EDITOR">Editor (Puede editar)</option>
+                  <option value="VIEWER">{t('workspace.invite.viewerOption')}</option>
+                  <option value="EDITOR">{t('workspace.invite.editorOption')}</option>
                 </select>
               </div>
 
@@ -472,7 +479,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                   type="button"
                   onClick={() => setIsShareModalOpen(false)}
                   className="px-4 py-2 border border-gray-300 rounded text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  Cancelar
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -481,10 +488,10 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                   {isInviting ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Invitando...</span>
+                      <span>{t('workspace.invite.inviting')}</span>
                     </>
                   ) : (
-                    <span>Invitar</span>
+                    <span>{t('workspace.invite.action')}</span>
                   )}
                 </button>
               </div>
@@ -498,9 +505,10 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
           <div className="relative bg-card border border-border rounded-lg shadow-xl w-full max-w-md mx-4">
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">Confirmar Eliminación</h3>
+              <h3 className="text-lg font-semibold text-gray-800">{t('workspace.deleteDialog.title')}</h3>
               <button
                 onClick={() => setIsDeleteModalOpen(false)}
+                aria-label={t('common.close')}
                 className="text-gray-400 hover:text-gray-600"
                 disabled={isDeleting}
               >
@@ -517,11 +525,10 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                 </div>
                 <div className="flex-1">
                   <p className="text-sm text-gray-700">
-                    ¿Estás seguro de que deseas eliminar el diagrama{' '}
-                    <span className="font-semibold">"{diagramToDelete.name}"</span>?
+                    {t('workspace.deleteDialog.question', { name: diagramToDelete.name })}
                   </p>
                   <p className="mt-2 text-sm text-red-600">
-                    Esta acción no se puede deshacer.
+                    {t('workspace.deleteDialog.warning')}
                   </p>
                 </div>
               </div>
@@ -533,7 +540,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                   disabled={isDeleting}
                   className="px-4 py-2 border border-gray-300 rounded text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Cancelar
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={handleDeleteDiagram}
@@ -543,12 +550,12 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                   {isDeleting ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Eliminando...</span>
+                      <span>{t('workspace.deleteDialog.deleting')}</span>
                     </>
                   ) : (
                     <>
                       <Trash2 size={16} />
-                      <span>Eliminar</span>
+                      <span>{t('workspace.deleteDialog.action')}</span>
                     </>
                   )}
                 </button>

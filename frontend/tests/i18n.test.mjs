@@ -83,3 +83,21 @@ test('catalogs include authentication and dashboard contracts', () => {
     assert.equal(typeof esModule.es?.[key], 'string', `missing Spanish key: ${key}`);
   }
 });
+
+test('catalogs include workspace, members and repository contracts', () => {
+  const requiredKeys = [
+    'workspace.loading', 'workspace.backToDashboard', 'workspace.tabs.diagrams',
+    'workspace.tabs.code', 'workspace.tabs.members', 'workspace.stats.diagrams',
+    'workspace.stats.collaborators', 'workspace.stats.created', 'workspace.diagram.create',
+    'workspace.diagram.empty', 'workspace.invite.title', 'workspace.deleteDialog.title',
+    'members.title', 'members.allowViewerComments', 'members.removeConfirm',
+    'repository.empty', 'repository.revision', 'repository.files', 'repository.preview',
+    'repository.compare.title', 'repository.download', 'repository.restore.action',
+    'repository.comments.title', 'roles.owner', 'roles.editor', 'roles.viewer',
+  ];
+
+  for (const key of requiredKeys) {
+    assert.equal(typeof enModule.en?.[key], 'string', `missing English key: ${key}`);
+    assert.equal(typeof esModule.es?.[key], 'string', `missing Spanish key: ${key}`);
+  }
+});

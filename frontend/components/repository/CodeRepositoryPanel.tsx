@@ -15,6 +15,7 @@ import CommentPanel from './CommentPanel';
 import FileTree from './FileTree';
 import FileViewer from './FileViewer';
 import RevisionCompare from './RevisionCompare';
+import { useI18n } from '@/components/i18n/I18nProvider';
 
 interface CodeRepositoryPanelProps {
   workspaceId: string;
@@ -30,6 +31,7 @@ export default function CodeRepositoryPanel({ workspaceId, role, allowViewerComm
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
+  const { t, formatDate } = useI18n();
 
   const loadRevisions = useCallback(async () => {
     setLoading(true);
@@ -39,11 +41,11 @@ export default function CodeRepositoryPanel({ workspaceId, role, allowViewerComm
       setRevisions(data);
       setRevisionId((current) => data.some((item) => item.id === current) ? current : data[0]?.id ?? '');
     } catch (requestError: any) {
-      setError(requestError.response?.data?.message || 'No se pudo cargar el repositorio.');
+      setError(requestError.response?.data?.message || t('repository.loadError'));
     } finally {
       setLoading(false);
     }
-  }, [workspaceId]);
+  }, [t, workspaceId]);
 
   useEffect(() => { void loadRevisions(); }, [loadRevisions]);
 
@@ -55,15 +57,15 @@ export default function CodeRepositoryPanel({ workspaceId, role, allowViewerComm
     }
     repositoryAPI.getTree(workspaceId, revisionId)
       .then(setFiles)
-      .catch((requestError) => setError(requestError.response?.data?.message || 'No se pudo cargar el árbol de archivos.'));
-  }, [workspaceId, revisionId]);
+      .catch((requestError) => setError(requestError.response?.data?.message || t('repository.treeError')));
+  }, [t, workspaceId, revisionId]);
 
   const openFile = async (fileId: string) => {
     setError('');
     try {
       setFile(await repositoryAPI.readFile(workspaceId, revisionId, fileId));
     } catch (requestError: any) {
-      setError(requestError.response?.data?.message || 'No se pudo abrir el archivo.');
+      setError(requestError.response?.data?.message || t('repository.openError'));
     }
   };
 
@@ -79,7 +81,7 @@ export default function CodeRepositoryPanel({ workspaceId, role, allowViewerComm
       anchor.click();
       URL.revokeObjectURL(url);
     } catch (requestError: any) {
-      setError(requestError.response?.data?.message || 'No se pudo descargar la revisión.');
+      setError(requestError.response?.data?.message || t('repository.downloadError'));
     } finally {
       setActionLoading(false);
     }
@@ -93,7 +95,7 @@ export default function CodeRepositoryPanel({ workspaceId, role, allowViewerComm
       await loadRevisions();
       setRevisionId(restored.id);
     } catch (requestError: any) {
-      setError(requestError.response?.data?.message || 'No se pudo restaurar la revisión.');
+      setError(requestError.response?.data?.message || t('repository.restore.error'));
     } finally {
       setActionLoading(false);
     }
@@ -107,15 +109,15 @@ export default function CodeRepositoryPanel({ workspaceId, role, allowViewerComm
   );
 
   if (loading) {
-    return <div className="flex min-h-64 items-center justify-center gap-2 text-muted-foreground"><Loader2 className="animate-spin" size={20} /> Cargando repositorio…</div>;
+    return <div className="flex min-h-64 items-center justify-center gap-2 text-muted-foreground"><Loader2 className="animate-spin" size={20} /> {t('repository.loading')}</div>;
   }
 
   if (revisions.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border bg-card p-10 text-center">
         <History className="mx-auto text-muted-foreground" size={36} />
-        <h2 className="mt-3 text-lg font-semibold text-card-foreground">Aún no hay revisiones</h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">Genera un proyecto Spring Boot o Flutter desde un diagrama. El código aparecerá aquí automáticamente.</p>
+        <h2 className="mt-3 text-lg font-semibold text-card-foreground">{t('repository.empty')}</h2>
+        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">{t('repository.emptyDetail')}</p>
       </div>
     );
   }
@@ -125,48 +127,48 @@ export default function CodeRepositoryPanel({ workspaceId, role, allowViewerComm
       <section className="rounded-lg border border-border bg-card p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <label className="block text-sm font-medium text-foreground">
-            Revisión activa
+            {t('repository.revision')}
             <select value={revisionId} onChange={(event) => setRevisionId(event.target.value)} className="mt-1 min-h-11 w-full min-w-64 rounded-md border border-input lg:w-auto">
               {revisions.map((revision) => (
                 <option key={revision.id} value={revision.id}>
-                  UML v{revision.modelVersion} · {revision.projectType} · {new Date(revision.createdAt).toLocaleString()}
+                  UML v{revision.modelVersion} · {revision.projectType} · {formatDate(revision.createdAt)}
                 </option>
               ))}
             </select>
           </label>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={download} disabled={actionLoading} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md bg-secondary px-4 font-medium text-secondary-foreground hover:bg-secondary/80 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <Download size={16} /> Descargar ZIP
+              <Download size={16} /> {t('repository.download')}
             </button>
             {canRestore && (
               <button type="button" onClick={restore} disabled={actionLoading} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md bg-primary px-4 font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <RotateCcw size={16} /> Restaurar
+                <RotateCcw size={16} /> {t('repository.restore.action')}
               </button>
             )}
           </div>
         </div>
         {selectedRevision && (
           <dl className="mt-4 grid gap-3 border-t border-border pt-4 text-sm sm:grid-cols-3">
-            <div><dt className="text-muted-foreground">Generador</dt><dd className="font-medium text-foreground">{selectedRevision.generator}</dd></div>
-            <div><dt className="text-muted-foreground">Archivos</dt><dd className="font-medium text-foreground">{selectedRevision.fileCount}</dd></div>
-            <div><dt className="text-muted-foreground">Comentarios</dt><dd className="font-medium text-foreground">{selectedRevision.commentCount}</dd></div>
+            <div><dt className="text-muted-foreground">{t('repository.generator')}</dt><dd className="font-medium text-foreground">{selectedRevision.generator}</dd></div>
+            <div><dt className="text-muted-foreground">{t('repository.files')}</dt><dd className="font-medium text-foreground">{selectedRevision.fileCount}</dd></div>
+            <div><dt className="text-muted-foreground">{t('repository.comments')}</dt><dd className="font-medium text-foreground">{selectedRevision.commentCount}</dd></div>
           </dl>
         )}
         {error && <p role="alert" className="mt-3 text-sm text-destructive">{error}</p>}
       </section>
 
       <div className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)_20rem]">
-        <aside className="rounded-lg border border-border bg-card p-3" aria-label="Archivos de la revisión">
+        <aside className="rounded-lg border border-border bg-card p-3" aria-label={t('repository.filesLabel')}>
           <FileTree nodes={tree} selectedFileId={file?.id} onSelect={openFile} />
         </aside>
-        <section className="min-w-0 overflow-hidden rounded-lg border border-border bg-card" aria-label="Visor de código">
+        <section className="min-w-0 overflow-hidden rounded-lg border border-border bg-card" aria-label={t('repository.preview')}>
           {file && <header className="border-b border-border px-4 py-3"><code className="text-sm font-medium text-foreground">{file.path}</code></header>}
           <FileViewer file={file} />
         </section>
         {file ? (
           <CommentPanel workspaceId={workspaceId} revisionId={revisionId} fileId={file.id} canComment={canComment} />
         ) : (
-          <aside className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">Selecciona un archivo para revisar comentarios.</aside>
+          <aside className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{t('repository.selectForComments')}</aside>
         )}
       </div>
 

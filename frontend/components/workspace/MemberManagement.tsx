@@ -9,6 +9,7 @@ import {
   WorkspaceMember,
   WorkspaceMembersResponse,
 } from '@/types/workspace';
+import { useI18n } from '@/components/i18n/I18nProvider';
 
 interface MemberManagementProps {
   workspaceId: string;
@@ -22,15 +23,16 @@ export default function MemberManagement({ workspaceId, role, onWorkspaceChanged
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
   const { canManageMembers } = repositoryCapabilities(role, false);
+  const { t } = useI18n();
 
   const load = useCallback(async () => {
     setError('');
     try {
       setData(await workspaceAPI.getMembers(workspaceId));
     } catch (requestError: any) {
-      setError(requestError.response?.data?.message || 'No se pudieron cargar los miembros.');
+      setError(requestError.response?.data?.message || t('members.loadError'));
     }
-  }, [workspaceId]);
+  }, [t, workspaceId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -41,25 +43,25 @@ export default function MemberManagement({ workspaceId, role, onWorkspaceChanged
     try {
       await workspaceAPI.updateMemberRole(workspaceId, member.id, nextRole);
       await Promise.all([load(), onWorkspaceChanged()]);
-      setStatus('Rol actualizado.');
+      setStatus(t('members.roleUpdated'));
     } catch (requestError: any) {
-      setError(requestError.response?.data?.message || 'No se pudo actualizar el rol.');
+      setError(requestError.response?.data?.message || t('members.roleUpdateError'));
     } finally {
       setBusyId('');
     }
   };
 
   const remove = async (member: WorkspaceMember) => {
-    if (!window.confirm(`¿Quitar a ${member.user.name} del proyecto?`)) return;
+    if (!window.confirm(t('members.removeConfirm', { name: member.user.name }))) return;
     setBusyId(member.id);
     setError('');
     setStatus('');
     try {
       await workspaceAPI.removeMember(workspaceId, member.id);
       await Promise.all([load(), onWorkspaceChanged()]);
-      setStatus('Miembro retirado.');
+      setStatus(t('members.removed'));
     } catch (requestError: any) {
-      setError(requestError.response?.data?.message || 'No se pudo retirar el miembro.');
+      setError(requestError.response?.data?.message || t('members.removeError'));
     } finally {
       setBusyId('');
     }
@@ -72,16 +74,16 @@ export default function MemberManagement({ workspaceId, role, onWorkspaceChanged
     try {
       await workspaceAPI.updateRepositoryPolicy(workspaceId, allowViewerComments);
       await Promise.all([load(), onWorkspaceChanged()]);
-      setStatus('Política de comentarios actualizada.');
+      setStatus(t('members.policyUpdated'));
     } catch (requestError: any) {
-      setError(requestError.response?.data?.message || 'No se pudo actualizar la política.');
+      setError(requestError.response?.data?.message || t('members.policyError'));
     } finally {
       setBusyId('');
     }
   };
 
   if (!data) {
-    return <div className="flex min-h-52 items-center justify-center gap-2 text-muted-foreground"><Loader2 size={20} className="animate-spin" /> Cargando miembros…</div>;
+    return <div className="flex min-h-52 items-center justify-center gap-2 text-muted-foreground"><Loader2 size={20} className="animate-spin" /> {t('members.loading')}</div>;
   }
 
   return (
@@ -90,15 +92,15 @@ export default function MemberManagement({ workspaceId, role, onWorkspaceChanged
         <div className="flex items-start gap-3">
           <Shield size={22} className="mt-0.5 text-primary" />
           <div>
-            <h2 id="members-title" className="text-lg font-semibold text-card-foreground">Miembros y permisos</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Los roles controlan diagramas, revisiones, descargas y comentarios.</p>
+            <h2 id="members-title" className="text-lg font-semibold text-card-foreground">{t('members.title')}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t('members.description')}</p>
           </div>
         </div>
         {canManageMembers && (
           <label className="mt-5 flex min-h-11 cursor-pointer items-center justify-between gap-4 rounded-md border border-border bg-muted/50 px-4 py-3">
             <span>
-              <span className="block text-sm font-medium text-foreground">Permitir comentarios de observadores</span>
-              <span className="block text-xs text-muted-foreground">VIEWER conserva acceso de solo lectura al código.</span>
+              <span className="block text-sm font-medium text-foreground">{t('members.allowViewerComments')}</span>
+              <span className="block text-xs text-muted-foreground">{t('members.viewerHelp')}</span>
             </span>
             <input
               type="checkbox"
@@ -125,7 +127,7 @@ export default function MemberManagement({ workspaceId, role, onWorkspaceChanged
                 <div className="flex items-center gap-2">
                   {canManageMembers && !owner ? (
                     <>
-                      <label className="sr-only" htmlFor={`role-${member.id}`}>Rol de {member.user.name}</label>
+                      <label className="sr-only" htmlFor={`role-${member.id}`}>{t('members.roleOf', { name: member.user.name })}</label>
                       <select
                         id={`role-${member.id}`}
                         value={member.role}
@@ -133,14 +135,14 @@ export default function MemberManagement({ workspaceId, role, onWorkspaceChanged
                         onChange={(event) => void updateRole(member, event.target.value as Role.EDITOR | Role.VIEWER)}
                         className="min-h-11 rounded-md border border-input text-sm"
                       >
-                        <option value={Role.EDITOR}>Editor</option>
-                        <option value={Role.VIEWER}>Observador</option>
+                        <option value={Role.EDITOR}>{t('roles.editor')}</option>
+                        <option value={Role.VIEWER}>{t('roles.viewer')}</option>
                       </select>
                       <button
                         type="button"
                         onClick={() => void remove(member)}
                         disabled={busy}
-                        aria-label={`Quitar a ${member.user.name}`}
+                        aria-label={t('members.remove', { name: member.user.name })}
                         className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         {busy ? <Loader2 size={17} className="animate-spin" /> : <Trash2 size={17} />}
@@ -148,7 +150,7 @@ export default function MemberManagement({ workspaceId, role, onWorkspaceChanged
                     </>
                   ) : (
                     <span className="rounded-md bg-muted px-3 py-2 text-sm font-medium text-muted-foreground">
-                      {owner ? 'Propietario' : member.role === Role.EDITOR ? 'Editor' : 'Observador'}
+                      {owner ? t('roles.owner') : member.role === Role.EDITOR ? t('roles.editor') : t('roles.viewer')}
                     </span>
                   )}
                 </div>
