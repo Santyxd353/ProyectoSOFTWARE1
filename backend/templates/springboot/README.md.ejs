@@ -67,9 +67,13 @@ psql -U postgres
 \i database.sql
 ```
 
-3. **Configure environment variables (optional)**
+3. **Configure environment variables**
 
-El archivo `.env` ya viene incluido con valores por defecto:
+El proyecto incluye `.env.example` sin secretos reales. Cópialo como `.env` y ajusta los valores para tu equipo:
+
+```bash
+cp .env.example .env
+```
 
 ```env
 DB_HOST=localhost
@@ -81,7 +85,7 @@ SERVER_PORT=8080
 JPA_DDL_AUTO=update
 ```
 
-**Si necesitas cambiar la contraseña de PostgreSQL**, edita el archivo `.env`:
+Configura la contraseña real de PostgreSQL únicamente en `.env`:
 
 ```bash
 # Cambia DB_PASSWORD según tu configuración

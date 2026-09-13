@@ -1,5 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { ProjectType, RevisionStatus, Role } from '@prisma/client';
+import * as path from 'path';
 import { CodeGenerationService } from './code-generation.service';
 
 describe('CodeGenerationService repository integration', () => {
@@ -95,5 +96,26 @@ describe('CodeGenerationService repository integration', () => {
     await expect(
       service.downloadProject('generated-1', 'intruder'),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('renders the tracked environment example into generated projects', async () => {
+    (service as any).generateFromTemplates.mockRestore();
+    const renderTemplate = jest
+      .spyOn(service as any, 'renderTemplate')
+      .mockResolvedValue(undefined);
+
+    await (service as any).generateFromTemplates('generated/project', {
+      projectName: 'users-api',
+      basePackage: 'com.example.usersapi',
+      dbName: 'users_api',
+      classes: [],
+      relations: [],
+    });
+
+    expect(renderTemplate).toHaveBeenCalledWith(
+      expect.stringMatching(/[\\/]templates[\\/]springboot[\\/]\.env\.example$/),
+      path.join('generated/project', '.env.example'),
+      expect.objectContaining({ projectName: 'users-api', dbName: 'users_api' }),
+    );
   });
 });

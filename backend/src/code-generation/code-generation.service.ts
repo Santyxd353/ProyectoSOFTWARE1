@@ -764,10 +764,10 @@ export class CodeGenerationService {
       { projectName, dbName, classes }
     );
 
-    // Generate .env with default values
+    // Generate a safe, tracked environment example. Real secrets stay local.
     await this.renderTemplate(
-      path.join(templatesDir, '.env.ejs'),
-      path.join(projectPath, '.env'),
+      path.join(templatesDir, '.env.example'),
+      path.join(projectPath, '.env.example'),
       { projectName, dbName }
     );
 
