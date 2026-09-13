@@ -119,3 +119,18 @@ test('catalogs include UML editor contracts', () => {
     assert.equal(typeof esModule.es?.[key], 'string', `missing Spanish key: ${key}`);
   }
 });
+
+test('catalogs include AI and code-generation contracts', () => {
+  const requiredKeys = [
+    'ai.title', 'ai.welcome', 'ai.placeholder', 'ai.upload', 'ai.send',
+    'ai.thinking', 'ai.imageInvalid', 'ai.diagramApplied',
+    'generation.title', 'generation.spring.title', 'generation.spring.description',
+    'generation.flutter.title', 'generation.flutter.description',
+    'generation.generate', 'generation.generating', 'generation.download',
+    'generation.success', 'generation.error',
+  ];
+  for (const key of requiredKeys) {
+    assert.equal(typeof enModule.en?.[key], 'string', `missing English key: ${key}`);
+    assert.equal(typeof esModule.es?.[key], 'string', `missing Spanish key: ${key}`);
+  }
+});

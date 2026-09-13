@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Download, Code, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { codeGenAPI } from '@/lib/api';
+import { useI18n } from '@/components/i18n/I18nProvider';
 
 interface CodeGenerationPanelProps {
   diagramId: string;
@@ -15,6 +16,7 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
   const [backendResult, setBackendResult] = useState<any>(null);
   const [frontendResult, setFrontendResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useI18n();
 
   const handleGenerateSpringBoot = async () => {
     setIsGeneratingBackend(true);
@@ -27,11 +29,11 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
       if (result.success) {
         setBackendResult(result);
       } else {
-        setError(result.error || 'Failed to generate Spring Boot project');
+        setError(result.error || t('generation.spring.error'));
       }
     } catch (error: any) {
       console.error('Code generation error:', error);
-      setError(error.response?.data?.error || 'Failed to generate Spring Boot project');
+      setError(error.response?.data?.error || t('generation.spring.error'));
     } finally {
       setIsGeneratingBackend(false);
     }
@@ -48,11 +50,11 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
       if (result.success) {
         setFrontendResult(result);
       } else {
-        setError(result.error || 'Failed to generate Flutter project');
+        setError(result.error || t('generation.flutter.error'));
       }
     } catch (error: any) {
       console.error('Flutter generation error:', error);
-      setError(error.response?.data?.error || 'Failed to generate Flutter project');
+      setError(error.response?.data?.error || t('generation.flutter.error'));
     } finally {
       setIsGeneratingFrontend(false);
     }
@@ -75,7 +77,7 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download error:', error);
-      setError('Failed to download backend project');
+      setError(t('generation.spring.downloadError'));
     }
   };
 
@@ -96,7 +98,7 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download error:', error);
-      setError('Failed to download frontend project');
+      setError(t('generation.flutter.downloadError'));
     }
   };
 
@@ -104,15 +106,15 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
     <div className="bg-card rounded-lg shadow-lg border border-border p-6">
       <div className="flex items-center space-x-2 mb-4">
         <Code size={20} className="text-blue-600" />
-        <h3 className="text-lg font-semibold text-gray-900">Code Generation</h3>
+        <h3 className="text-lg font-semibold text-gray-900">{t('generation.title')}</h3>
       </div>
 
       <div className="space-y-6">
         {/* Backend Section - Spring Boot */}
         <div className="border border-gray-200 rounded-lg p-4">
-          <h4 className="text-md font-semibold text-gray-900 mb-3">Backend - Spring Boot</h4>
+          <h4 className="text-md font-semibold text-gray-900 mb-3">{t('generation.spring.title')}</h4>
           <p className="text-sm text-gray-600 mb-3">
-            Generate a complete Spring Boot REST API from your UML diagram.
+            {t('generation.spring.description')}
           </p>
 
           <button
@@ -127,12 +129,12 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
             {isGeneratingBackend ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                <span>Generating Backend...</span>
+                <span>{t('generation.spring.generating')}</span>
               </>
             ) : (
               <>
                 <Code size={16} />
-                <span>Generate Spring Boot Backend</span>
+                <span>{t('generation.spring.generate')}</span>
               </>
             )}
           </button>
@@ -143,7 +145,7 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
                 <CheckCircle size={16} className="text-green-600 mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
                   <h5 className="text-sm font-medium text-green-800 mb-1">
-                    Backend Generated Successfully!
+                    {t('generation.spring.success')}
                   </h5>
                   <p className="text-xs text-green-700 mb-3">{backendResult.message}</p>
                   <button
@@ -151,7 +153,7 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
                     className="flex items-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
                   >
                     <Download size={14} />
-                    <span>Download Spring Boot ZIP</span>
+                    <span>{t('generation.spring.download')}</span>
                   </button>
                 </div>
               </div>
@@ -159,20 +161,20 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
           )}
 
           <div className="bg-gray-50 rounded-md p-3 mt-3">
-            <p className="text-xs font-medium text-gray-900 mb-1">Includes:</p>
+            <p className="text-xs font-medium text-gray-900 mb-1">{t('generation.includes')}</p>
             <ul className="text-xs text-gray-600 space-y-0.5">
-              <li>• JPA Entities, DTOs, Repositories</li>
-              <li>• REST Controllers with CRUD endpoints</li>
-              <li>• PostgreSQL database configuration</li>
+              <li>• {t('generation.spring.featureData')}</li>
+              <li>• {t('generation.spring.featureRest')}</li>
+              <li>• {t('generation.spring.featureDatabase')}</li>
             </ul>
           </div>
         </div>
 
         {/* Frontend Section - Flutter */}
         <div className="border border-gray-200 rounded-lg p-4">
-          <h4 className="text-md font-semibold text-gray-900 mb-3">Frontend - Flutter</h4>
+          <h4 className="text-md font-semibold text-gray-900 mb-3">{t('generation.flutter.title')}</h4>
           <p className="text-sm text-gray-600 mb-3">
-            Generate a complete Flutter mobile app consuming your Spring Boot API.
+            {t('generation.flutter.description')}
           </p>
 
           <button
@@ -187,12 +189,12 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
             {isGeneratingFrontend ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                <span>Generating Frontend...</span>
+                <span>{t('generation.flutter.generating')}</span>
               </>
             ) : (
               <>
                 <Code size={16} />
-                <span>Generate Flutter Frontend</span>
+                <span>{t('generation.flutter.generate')}</span>
               </>
             )}
           </button>
@@ -203,7 +205,7 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
                 <CheckCircle size={16} className="text-green-600 mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
                   <h5 className="text-sm font-medium text-green-800 mb-1">
-                    Frontend Generated Successfully!
+                    {t('generation.flutter.success')}
                   </h5>
                   <p className="text-xs text-green-700 mb-3">{frontendResult.message}</p>
                   <button
@@ -211,7 +213,7 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
                     className="flex items-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
                   >
                     <Download size={14} />
-                    <span>Download Flutter ZIP</span>
+                    <span>{t('generation.flutter.download')}</span>
                   </button>
                 </div>
               </div>
@@ -219,11 +221,11 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
           )}
 
           <div className="bg-gray-50 rounded-md p-3 mt-3">
-            <p className="text-xs font-medium text-gray-900 mb-1">Includes:</p>
+            <p className="text-xs font-medium text-gray-900 mb-1">{t('generation.includes')}</p>
             <ul className="text-xs text-gray-600 space-y-0.5">
-              <li>• Models, Services, Screens (CRUD)</li>
-              <li>• Material Design UI</li>
-              <li>• Auto-configured to consume Spring Boot API</li>
+              <li>• {t('generation.flutter.featureCrud')}</li>
+              <li>• {t('generation.flutter.featureMaterial')}</li>
+              <li>• {t('generation.flutter.featureApi')}</li>
             </ul>
           </div>
         </div>
@@ -235,7 +237,7 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
               <AlertCircle size={16} className="text-red-600 mt-0.5 flex-shrink-0" />
               <div>
                 <h4 className="text-sm font-medium text-red-800 mb-1">
-                  Generation Failed
+                  {t('generation.error')}
                 </h4>
                 <p className="text-xs text-red-700">{error}</p>
               </div>

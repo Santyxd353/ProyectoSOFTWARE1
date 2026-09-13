@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Sparkles, Loader2, X, Lightbulb, Image as ImageIcon } from 'lucide-react';
 import { aiAPI } from '@/lib/api';
+import { useI18n } from '@/components/i18n/I18nProvider';
+import type { TranslationKey } from '@/lib/i18n/catalogs/en.ts';
 
 interface ChatMessage {
   id: string;
@@ -10,7 +12,9 @@ interface ChatMessage {
   content: string;
   timestamp: Date;
   suggestions?: string[];
+  suggestionKeys?: TranslationKey[];
   imageUrl?: string;
+  translationKey?: TranslationKey;
 }
 
 interface AIChatInterfaceProps {
@@ -36,6 +40,7 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
   const [showTemplates, setShowTemplates] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const { locale, t } = useI18n();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -75,7 +80,8 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
       const welcomeMessage: ChatMessage = {
         id: '1',
         type: 'ai',
-        content: '👋 ¡Hola! Soy tu asistente UML con IA powered by Claude 3 Haiku. Puedo ayudarte a crear diagramas de clases desde descripciones en lenguaje natural. ¡Describe un sistema que quieras modelar!',
+        content: '',
+        translationKey: 'ai.welcome',
         timestamp: new Date(),
         suggestions: suggestionsResponse.suggestions?.slice(0, 3) || []
       };
@@ -87,12 +93,13 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
       const fallbackMessage: ChatMessage = {
         id: '1',
         type: 'ai',
-        content: '👋 ¡Hola! Soy tu asistente UML con IA. Puedo ayudarte a crear diagramas de clases desde descripciones en lenguaje natural. ¡Describe un sistema que quieras modelar!',
+        content: '',
+        translationKey: 'ai.welcome',
         timestamp: new Date(),
-        suggestions: [
-          'Crear un sistema e-commerce con productos, categorías y usuarios',
-          'Diseñar un sistema de gestión de biblioteca con libros, autores y prestamistas',
-          'Construir una plataforma de blog con posts, comentarios y etiquetas'
+        suggestionKeys: [
+          'ai.fallback.shop',
+          'ai.fallback.library',
+          'ai.fallback.blog',
         ]
       };
       setMessages([fallbackMessage]);
@@ -105,7 +112,7 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
 
     // Validar que sea una imagen
     if (!file.type.startsWith('image/')) {
-      alert('Por favor selecciona un archivo de imagen válido');
+      alert(t('ai.imageInvalid'));
       return;
     }
 
@@ -134,7 +141,8 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       type: 'user',
-      content: text || '📷 Imagen de diagrama enviada',
+      content: text,
+      translationKey: text ? undefined : 'ai.imageSent',
       timestamp: new Date(),
       imageUrl: imagePreview || undefined,
     };
@@ -151,7 +159,7 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
 
     try {
       // Get AI response with diagram context and image if provided
-      const chatResponse = await aiAPI.chat(text || 'Analiza este diagrama', diagramId, imageToSend || undefined);
+      const chatResponse = await aiAPI.chat(text || t('ai.imageAnalyze'), diagramId, imageToSend || undefined);
 
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -174,7 +182,8 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: '😅 Lo siento, estoy teniendo problemas ahora. Por favor intenta de nuevo en un momento.',
+        content: '',
+        translationKey: 'ai.error',
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -198,10 +207,11 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
       <div className="flex items-center justify-between p-3 border-b border-primary bg-primary text-primary-foreground flex-shrink-0">
         <div className="flex items-center space-x-2">
           <Bot size={20} />
-          <h3 className="font-semibold">Asistente UML IA</h3>
+          <h3 className="font-semibold">{t('ai.title')}</h3>
         </div>
         <button
           onClick={onClose}
+          aria-label={t('ai.close')}
           className="text-white hover:text-gray-200 transition-colors"
         >
           <X size={20} />
@@ -230,22 +240,22 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
                     <div className="mb-2">
                       <img
                         src={message.imageUrl}
-                        alt="Diagrama enviado"
+                        alt={t('ai.imageAlt')}
                         className="max-w-full h-auto rounded border border-gray-300"
                         style={{ maxHeight: '200px' }}
                       />
                     </div>
                   )}
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  <p className="text-sm whitespace-pre-wrap">{message.translationKey ? t(message.translationKey) : message.content}</p>
 
                   {/* Suggestions */}
-                  {message.suggestions && message.suggestions.length > 0 && (
+                  {((message.suggestions?.length ?? 0) > 0 || (message.suggestionKeys?.length ?? 0) > 0) && (
                     <div className="mt-3 space-y-2">
                       <div className="flex items-center space-x-1 text-xs text-gray-600">
                         <Lightbulb size={12} />
-                        <span>Prueba estos ejemplos:</span>
+                        <span>{t('ai.examples')}</span>
                       </div>
-                      {message.suggestions.map((suggestion, index) => (
+                      {(message.suggestionKeys?.map((key) => t(key)) ?? message.suggestions ?? []).map((suggestion, index) => (
                         <button
                           key={index}
                           onClick={() => handleSendMessage(suggestion)}
@@ -259,7 +269,7 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
                 </div>
               </div>
               <div className={`text-xs mt-1 ${message.type === 'user' ? 'text-blue-100' : 'text-gray-500'}`}>
-                {message.timestamp.toLocaleTimeString()}
+                {message.timestamp.toLocaleTimeString(locale === 'es' ? 'es-BO' : 'en-US')}
               </div>
             </div>
           </div>
@@ -272,7 +282,7 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
               <div className="flex items-center space-x-2">
                 <Bot size={16} className="text-gray-600" />
                 <Loader2 size={16} className="animate-spin text-gray-600" />
-                <span className="text-sm text-gray-600">Pensando...</span>
+                <span className="text-sm text-gray-600">{t('ai.thinking')}</span>
               </div>
             </div>
           </div>
@@ -288,11 +298,12 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
           <div className="mb-2 relative inline-block">
             <img
               src={imagePreview}
-              alt="Vista previa"
+              alt={t('ai.previewAlt')}
               className="max-h-24 rounded border border-gray-300"
             />
             <button
               onClick={handleRemoveImage}
+              aria-label={t('ai.removeImage')}
               className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
             >
               <X size={12} />
@@ -315,7 +326,8 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading}
             className="p-2 rounded border border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Subir imagen de diagrama"
+            title={t('ai.upload')}
+            aria-label={t('ai.upload')}
           >
             <ImageIcon size={16} className="text-gray-600" />
           </button>
@@ -326,12 +338,13 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Describe tu diagrama o sube una imagen..."
+            placeholder={t('ai.placeholder')}
             className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm"
             disabled={isLoading}
           />
           <button
             onClick={() => handleSendMessage()}
+            aria-label={t('ai.send')}
             disabled={(!inputMessage.trim() && !selectedImage) || isLoading}
             className={`p-2 rounded transition-colors ${
               (!inputMessage.trim() && !selectedImage) || isLoading
@@ -350,21 +363,21 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
         {/* Quick actions */}
         <div className="flex items-center justify-between mt-3 gap-2">
           <button
-            onClick={() => handleSendMessage("Crear un sistema de farmacia")}
+            onClick={() => handleSendMessage(t('ai.quick.pharmacyPrompt'))}
             className="text-xs text-gray-600 hover:text-gray-800 transition-colors flex items-center space-x-1"
             disabled={isLoading}
           >
             <Sparkles size={12} />
-            <span>Rápido: Farmacia</span>
+            <span>{t('ai.quick.pharmacy')}</span>
           </button>
 
           <button
-            onClick={() => handleSendMessage("Diseñar un e-commerce")}
+            onClick={() => handleSendMessage(t('ai.quick.shopPrompt'))}
             className="text-xs text-gray-600 hover:text-gray-800 transition-colors flex items-center space-x-1"
             disabled={isLoading}
           >
             <Sparkles size={12} />
-            <span>Rápido: E-commerce</span>
+            <span>{t('ai.quick.shop')}</span>
           </button>
 
           <button
@@ -373,14 +386,14 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
             disabled={isLoading}
           >
             <Lightbulb size={12} />
-            <span>Plantillas</span>
+            <span>{t('ai.templates')}</span>
           </button>
         </div>
 
         {/* Templates dropdown */}
         {showTemplates && templates.length > 0 && (
           <div className="mt-2 p-2 bg-gray-50 rounded-md">
-            <div className="text-xs font-medium text-gray-700 mb-2">Plantillas Rápidas:</div>
+            <div className="text-xs font-medium text-gray-700 mb-2">{t('ai.quickTemplates')}</div>
             <div className="grid grid-cols-1 gap-1">
               {templates.map((template) => (
                 <button

@@ -353,31 +353,31 @@ git commit -m "feat: translate UML editor"
 - Consumes: `useI18n` and catalogs.
 - Produces: bilingual AI and generation panels while preserving prompts and generated content.
 
-- [ ] **Step 1: Add failing AI/generation key assertions**
+- [x] **Step 1: Add failing AI/generation key assertions**
 
 Require keys under `ai.title`, `ai.welcome`, `ai.placeholder`, `ai.upload`, `ai.send`, `ai.thinking`, `ai.imageInvalid`, `ai.diagramApplied`, `generation.title`, `generation.spring.*`, `generation.flutter.*`, `generation.generate`, `generation.generating`, `generation.download`, `generation.success`, and `generation.error`.
 
-- [ ] **Step 2: Run the i18n test and confirm RED**
+- [x] **Step 2: Run the i18n test and confirm RED**
 
 Run: `cd frontend && node --no-warnings --test --experimental-strip-types tests/i18n.test.mjs`
 
 Expected: FAIL on absent AI/generation keys.
 
-- [ ] **Step 3: Add both catalog sections**
+- [x] **Step 3: Add both catalog sections**
 
 Translate panel chrome, guidance, upload labels, progress, success, errors, framework descriptions, feature lists, and download actions. Do not translate user prompts, assistant responses, uploaded filenames, generated paths, or generated source code.
 
-- [ ] **Step 4: Migrate both panels**
+- [x] **Step 4: Migrate both panels**
 
 Replace visible literals, alerts, placeholders, buttons, status messages, tooltips, and image alternate text with `t`. Preserve messages returned by the AI as content; add a localized technical-error heading before unknown backend details.
 
-- [ ] **Step 5: Verify the batch**
+- [x] **Step 5: Verify the batch**
 
 Run: `cd frontend && npm test -- --run && npm run type-check`
 
 Expected: tests and type-check PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/components/chat/AIChatInterface.tsx frontend/components/code-generation/CodeGenerationPanel.tsx frontend/lib/i18n/catalogs frontend/tests/i18n.test.mjs
