@@ -4,6 +4,7 @@ import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { UMLClass } from '@/types/uml';
 import { Database, Zap, Users, FileText, Package, Settings } from 'lucide-react';
+import { useI18n } from '@/components/i18n/I18nProvider';
 
 interface UMLClassNodeData extends UMLClass {
   isSelected?: boolean;
@@ -58,6 +59,7 @@ const getVisibilitySymbol = (visibility: string) => {
 };
 
 const UMLClassNode = memo(({ data, selected }: NodeProps<UMLClassNodeData>) => {
+  const { t } = useI18n();
   const primaryStereotype = data.stereotypes?.[0] || 'class';
   const stereotypeColor = getStereotypeColor(primaryStereotype);
 
@@ -129,7 +131,7 @@ const UMLClassNode = memo(({ data, selected }: NodeProps<UMLClassNodeData>) => {
               ))}
             </div>
           ) : (
-            <div className="text-xs text-gray-400 italic text-center py-2">Sin atributos</div>
+            <div className="text-xs text-gray-400 italic text-center py-2">{t('diagramEditor.class.noAttributes')}</div>
           )}
         </div>
       </div>
@@ -160,7 +162,7 @@ const UMLClassNode = memo(({ data, selected }: NodeProps<UMLClassNodeData>) => {
             ))}
           </div>
         ) : (
-          <div className="text-xs text-gray-400 italic text-center py-2">Sin métodos</div>
+          <div className="text-xs text-gray-400 italic text-center py-2">{t('diagramEditor.class.noMethods')}</div>
         )}
       </div>
 

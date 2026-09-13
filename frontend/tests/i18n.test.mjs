@@ -101,3 +101,21 @@ test('catalogs include workspace, members and repository contracts', () => {
     assert.equal(typeof esModule.es?.[key], 'string', `missing Spanish key: ${key}`);
   }
 });
+
+test('catalogs include UML editor contracts', () => {
+  const requiredKeys = [
+    'diagramEditor.header.back', 'diagramEditor.header.version',
+    'diagramEditor.status.connected', 'diagramEditor.status.disconnected',
+    'diagramEditor.actions.save', 'diagramEditor.actions.openChat',
+    'diagramEditor.class.title', 'diagramEditor.class.name',
+    'diagramEditor.attribute.title', 'diagramEditor.attribute.name',
+    'diagramEditor.method.title', 'diagramEditor.method.name',
+    'diagramEditor.relationship.title', 'diagramEditor.relationship.type',
+    'diagramEditor.sidebar.title', 'diagramEditor.sidebar.tips',
+    'diagramEditor.validation.loadError', 'diagramEditor.validation.saveError',
+  ];
+  for (const key of requiredKeys) {
+    assert.equal(typeof enModule.en?.[key], 'string', `missing English key: ${key}`);
+    assert.equal(typeof esModule.es?.[key], 'string', `missing Spanish key: ${key}`);
+  }
+});

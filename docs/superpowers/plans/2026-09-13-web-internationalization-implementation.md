@@ -307,31 +307,31 @@ git commit -m "feat: translate workspace repository workflows"
 - Consumes: `useI18n`, `LanguageToggle`, `formatDate`.
 - Produces: bilingual diagram editor without changing UML data.
 
-- [ ] **Step 1: Add failing editor key assertions**
+- [x] **Step 1: Add failing editor key assertions**
 
 Require non-empty keys under `diagramEditor.header.*`, `diagramEditor.status.*`, `diagramEditor.actions.*`, `diagramEditor.class.*`, `diagramEditor.attribute.*`, `diagramEditor.method.*`, `diagramEditor.relationship.*`, `diagramEditor.sidebar.*`, and `diagramEditor.validation.*` in both catalogs.
 
-- [ ] **Step 2: Run the i18n test and confirm RED**
+- [x] **Step 2: Run the i18n test and confirm RED**
 
 Run: `cd frontend && node --no-warnings --test --experimental-strip-types tests/i18n.test.mjs`
 
 Expected: FAIL on missing diagram editor entries.
 
-- [ ] **Step 3: Add editor translations**
+- [x] **Step 3: Add editor translations**
 
 Translate user-interface concepts such as `Class name`/`Nombre de clase`, `Attributes`/`Atributos`, `Methods`/`Métodos`, `Relationship`/`Relación`, `Multiplicity`/`Multiplicidad`, `Save diagram`/`Guardar diagrama`, connection states, validation errors, and delete confirmations. Do not translate user-entered class, method, attribute, relationship, stereotype, or type values.
 
-- [ ] **Step 4: Migrate editor shell and components**
+- [x] **Step 4: Migrate editor shell and components**
 
 Add `<LanguageToggle />` to the editor header. Replace editor headings, button text, tooltips, placeholders, instructional text, alerts, modal copy, connection status, and ARIA labels with `t`. Replace header date formatting with `formatDate`. Keep React Flow node IDs and UML enum values unchanged.
 
-- [ ] **Step 5: Verify editor behavior**
+- [x] **Step 5: Verify editor behavior**
 
 Run: `cd frontend && npm test -- --run && npm run type-check && npm run build`
 
 Expected: tests PASS, editor types compile, and production build exits 0.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "frontend/app/workspace/[workspaceId]/diagram/[diagramId]/page.tsx" frontend/components/editor frontend/lib/i18n/catalogs frontend/tests/i18n.test.mjs

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Layers,
   Box,
@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Lightbulb
 } from 'lucide-react';
+import { useI18n } from '@/components/i18n/I18nProvider';
 
 interface UMLTemplate {
   id: string;
@@ -32,15 +33,16 @@ interface SidebarSection {
 }
 
 export default function UMLSidebar({ onAddElement }: { onAddElement: (element: any) => void }) {
+  const { t } = useI18n();
   const [sections, setSections] = useState<SidebarSection[]>([
     {
-      title: 'Clases',
+      title: t('diagramEditor.sidebar.classes'),
       icon: <Box size={16} />,
       isOpen: true,
       items: [
         {
           id: 'basic-class',
-          name: 'Clase',
+          name: t('diagramEditor.sidebar.class'),
           icon: <Box size={14} />,
           type: 'umlClass',
           data: {
@@ -57,6 +59,17 @@ export default function UMLSidebar({ onAddElement }: { onAddElement: (element: a
       ]
     }
   ]);
+
+  useEffect(() => {
+    setSections((current) => current.map((section) => ({
+      ...section,
+      title: t('diagramEditor.sidebar.classes'),
+      items: section.items.map((item) => ({
+        ...item,
+        name: t('diagramEditor.sidebar.class'),
+      })),
+    })));
+  }, [t]);
 
   const toggleSection = (index: number) => {
     setSections(prev => prev.map((section, i) =>
@@ -97,9 +110,9 @@ export default function UMLSidebar({ onAddElement }: { onAddElement: (element: a
       <div className="p-4 border-b border-border bg-muted">
         <h2 className="text-lg font-semibold text-gray-800 flex items-center">
           <Layers className="mr-2" size={20} />
-          Elementos UML
+          {t('diagramEditor.sidebar.title')}
         </h2>
-        <p className="text-sm text-gray-600 mt-1">Arrastra y suelta elementos al canvas</p>
+        <p className="text-sm text-gray-600 mt-1">{t('diagramEditor.sidebar.instruction')}</p>
       </div>
 
       {/* Sections */}
@@ -152,13 +165,13 @@ export default function UMLSidebar({ onAddElement }: { onAddElement: (element: a
       <div className="p-4 bg-muted border-t border-border mt-auto">
         <h3 className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-2">
           <Lightbulb size={15} className="text-primary" aria-hidden="true" />
-          Consejos
+          {t('diagramEditor.sidebar.tips')}
         </h3>
         <ul className="text-xs text-gray-600 space-y-1">
-          <li>Arrastra elementos al canvas</li>
-          <li>Haz clic para agregar al centro</li>
-          <li>Usa el chat IA para creación masiva</li>
-          <li>Conecta con relaciones</li>
+          <li>{t('diagramEditor.sidebar.tipDrag')}</li>
+          <li>{t('diagramEditor.sidebar.tipClick')}</li>
+          <li>{t('diagramEditor.sidebar.tipAI')}</li>
+          <li>{t('diagramEditor.sidebar.tipConnect')}</li>
         </ul>
       </div>
     </div>

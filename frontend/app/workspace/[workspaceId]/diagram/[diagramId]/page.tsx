@@ -10,6 +10,8 @@ import { useAuthStore } from '@/stores/auth';
 import { diagramAPI } from '@/lib/api';
 import { Diagram } from '@/types/uml';
 import ThemeToggle from '@/components/theme/ThemeToggle';
+import LanguageToggle from '@/components/i18n/LanguageToggle';
+import { useI18n } from '@/components/i18n/I18nProvider';
 
 interface DiagramPageProps {
   params: {
@@ -26,6 +28,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCodeGenOpen, setIsCodeGenOpen] = useState(false);
+  const { t, formatDate } = useI18n();
 
   // Fetch diagram data
   useEffect(() => {
@@ -41,14 +44,14 @@ export default function DiagramPage({ params }: DiagramPageProps) {
         setDiagram(diagramData);
       } catch (error: any) {
         console.error('Error fetching diagram:', error);
-        setError(error.response?.data?.message || 'Failed to load diagram');
+        setError(error.response?.data?.message || t('diagramEditor.validation.loadError'));
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchDiagram();
-  }, [params.diagramId, user, router]);
+  }, [params.diagramId, user, router, t]);
 
   // Handle diagram save
   const handleSave = async (diagramData: any) => {
@@ -76,7 +79,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
         status: error.response?.status,
         statusText: error.response?.statusText
       });
-      setError(error.response?.data?.message || error.message || 'Failed to save diagram');
+      setError(error.response?.data?.message || error.message || t('diagramEditor.validation.saveError'));
     }
   };
 
@@ -112,8 +115,8 @@ export default function DiagramPage({ params }: DiagramPageProps) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Authentication Required</h2>
-          <p className="text-gray-600">Please log in to access this diagram.</p>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">{t('diagramEditor.header.authRequired')}</h2>
+          <p className="text-gray-600">{t('diagramEditor.header.loginRequired')}</p>
         </div>
       </div>
     );
@@ -124,8 +127,8 @@ export default function DiagramPage({ params }: DiagramPageProps) {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Diagram</h2>
-          <p className="text-gray-600">Please wait while we load your UML diagram...</p>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">{t('diagramEditor.header.loading')}</h2>
+          <p className="text-gray-600">{t('diagramEditor.header.loadingDetail')}</p>
         </div>
       </div>
     );
@@ -135,13 +138,13 @@ export default function DiagramPage({ params }: DiagramPageProps) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-red-600 mb-2">Error</h2>
-          <p className="text-gray-600 mb-4">{error || 'Diagram not found'}</p>
+          <h2 className="text-xl font-semibold text-red-600 mb-2">{t('diagramEditor.header.error')}</h2>
+          <p className="text-gray-600 mb-4">{error || t('diagramEditor.header.notFound')}</p>
           <button
             onClick={() => router.push('/dashboard')}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
-            Back to Dashboard
+            {t('diagramEditor.header.back')}
           </button>
         </div>
       </div>
@@ -158,17 +161,18 @@ export default function DiagramPage({ params }: DiagramPageProps) {
               onClick={() => router.push('/dashboard')}
               className="text-gray-600 hover:text-gray-900 transition-colors"
             >
-              ← Back to Dashboard
+              ← {t('diagramEditor.header.back')}
             </button>
             <div>
               <h1 className="text-xl font-semibold text-gray-900">{diagram.name}</h1>
               <p className="text-sm text-gray-600">
-                Version {diagram.version} • Last updated {new Date(diagram.updatedAt).toLocaleDateString()}
+                {t('diagramEditor.header.version', { version: diagram.version, date: formatDate(diagram.updatedAt) })}
               </p>
             </div>
           </div>
 
           <div className="flex items-center space-x-3">
+            <LanguageToggle />
             <ThemeToggle />
             <button
               onClick={() => setIsChatOpen(!isChatOpen)}
@@ -178,7 +182,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {isChatOpen ? 'Close AI Chat' : 'Open AI Chat'}
+              {isChatOpen ? t('diagramEditor.actions.closeChat') : t('diagramEditor.actions.openChat')}
             </button>
 
             <button
@@ -189,14 +193,14 @@ export default function DiagramPage({ params }: DiagramPageProps) {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {isCodeGenOpen ? 'Close Code Gen' : 'Code Generation'}
+              {isCodeGenOpen ? t('diagramEditor.actions.closeCode') : t('diagramEditor.actions.openCode')}
             </button>
 
             <button
               onClick={() => router.push(`/workspace/${params.workspaceId}`)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
-              Workspace
+              {t('diagramEditor.header.workspace')}
             </button>
           </div>
         </div>

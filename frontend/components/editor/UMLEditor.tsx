@@ -27,6 +27,7 @@ import UMLRelationshipEdge from './UMLRelationshipEdge';
 import AIChatInterface from '../chat/AIChatInterface';
 import { UMLClass, UMLRelation, Diagram } from '@/types/uml';
 import { useSocket } from '@/hooks/useSocket';
+import { useI18n } from '@/components/i18n/I18nProvider';
 
 const nodeTypes = {
   umlClass: UMLClassNode,
@@ -53,6 +54,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
   const [isEditingRelationship, setIsEditingRelationship] = useState(false);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(true);
+  const { t } = useI18n();
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -1142,7 +1144,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
                 aria-hidden="true"
                 className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-600' : 'bg-red-600'}`}
               />
-              {isConnected ? 'Conectado' : 'Desconectado'}
+              {isConnected ? t('diagramEditor.status.connected') : t('diagramEditor.status.disconnected')}
             </div>
           </div>
 
@@ -1187,6 +1189,8 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
       {!isChatOpen && (
         <button
           onClick={() => setIsChatOpen(true)}
+          aria-label={t('diagramEditor.actions.openChat')}
+          title={t('diagramEditor.actions.openChat')}
           className="fixed bottom-6 right-6 bg-primary hover:bg-primary/90 text-primary-foreground p-4 rounded-full shadow-lg shadow-primary/20 transition-all duration-200 z-50"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

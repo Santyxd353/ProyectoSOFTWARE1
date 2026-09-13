@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { EdgeProps, getSmoothStepPath, EdgeLabelRenderer, BaseEdge, Handle, Position } from 'reactflow';
+import { useI18n } from '@/components/i18n/I18nProvider';
 
 interface UMLRelationshipData {
   label?: string;
@@ -30,6 +31,7 @@ export default function UMLRelationshipEdge({
   markerStart,
   selected
 }: EdgeProps<UMLRelationshipData>) {
+  const { t } = useI18n();
   const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
@@ -266,12 +268,12 @@ export default function UMLRelationshipEdge({
                 ) : (
                   <>
                     <div className="text-[9px] text-gray-700">+ id: Long</div>
-                    <div className="text-[9px] text-gray-600 italic">+ [foreign keys]</div>
+                    <div className="text-[9px] text-gray-600 italic">+ [{t('diagramEditor.class.foreignKeys')}]</div>
                   </>
                 )}
               </div>
               <div className="px-2 py-0.5 border-t border-gray-300 text-center">
-                <div className="text-[8px] text-gray-500 italic">Sin métodos</div>
+                <div className="text-[8px] text-gray-500 italic">{t('diagramEditor.class.noMethods')}</div>
               </div>
 
               {/* Handles para la tabla intermedia - Igual que las clases normales */}
@@ -318,7 +320,7 @@ export default function UMLRelationshipEdge({
                     ? 'bg-gray-600 text-white border-gray-700 shadow-md'
                     : 'bg-card text-foreground border-border hover:border-primary/60'
                 }`}
-                title="Doble clic para editar, Delete para eliminar"
+                title={t('diagramEditor.actions.editRelationship')}
               >
                 {data.label}
                 {selected && data.type && (

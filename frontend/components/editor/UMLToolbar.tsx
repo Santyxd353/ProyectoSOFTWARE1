@@ -15,6 +15,7 @@ import {
   ZoomIn,
   ZoomOut
 } from 'lucide-react';
+import { useI18n } from '@/components/i18n/I18nProvider';
 
 interface UMLToolbarProps {
   onAddClass: () => void;
@@ -45,6 +46,7 @@ export default function UMLToolbar({
   onGenerateCode,
   onOpenChat,
 }: UMLToolbarProps) {
+  const { t } = useI18n();
   return (
     <div className="bg-card border-b border-border px-4 py-3 flex items-center justify-between">
       {/* Sección Izquierda - Estado de Colaboración */}
@@ -52,14 +54,14 @@ export default function UMLToolbar({
         <div className="flex items-center space-x-2">
           <Users size={16} className={isConnected ? 'text-primary' : 'text-gray-400'} />
           <span className="text-sm text-gray-600">
-            {isConnected ? 'Colaborando' : 'Desconectado'}
+            {isConnected ? t('diagramEditor.status.collaborating') : t('diagramEditor.status.disconnected')}
           </span>
         </div>
       </div>
 
       {/* Sección Central - Título */}
       <div className="flex items-center">
-        <h1 className="text-lg font-semibold text-gray-700">Editor UML</h1>
+        <h1 className="text-lg font-semibold text-gray-700">{t('diagramEditor.title')}</h1>
       </div>
 
       {/* Sección Derecha - Solo Guardar */}
@@ -67,10 +69,10 @@ export default function UMLToolbar({
         <button
           onClick={onSave}
           className="flex items-center space-x-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors shadow-sm"
-          title="Guardar Diagrama"
+          title={t('diagramEditor.actions.saveTitle')}
         >
           <Save size={16} />
-          <span>GUARDAR</span>
+          <span>{t('diagramEditor.actions.save')}</span>
         </button>
       </div>
     </div>

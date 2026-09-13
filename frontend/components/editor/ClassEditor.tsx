@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Save, Type, Database } from 'lucide-react';
 import { UMLClass, UMLAttribute, UMLMethod } from '@/types/uml';
+import { useI18n } from '@/components/i18n/I18nProvider';
 
 interface ClassEditorProps {
   umlClass: UMLClass;
@@ -21,6 +22,7 @@ export default function ClassEditor({ umlClass, onSave, onCancel }: ClassEditorP
   const [className, setClassName] = useState(umlClass.name);
   const [attributes, setAttributes] = useState<UMLAttribute[]>(umlClass.attributes || []);
   const [methods, setMethods] = useState<UMLMethod[]>(umlClass.methods || []);
+  const { t } = useI18n();
 
   // Add new attribute
   const addAttribute = () => {
@@ -88,10 +90,11 @@ export default function ClassEditor({ umlClass, onSave, onCancel }: ClassEditorP
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gray-50">
           <h2 className="text-xl font-semibold text-gray-800 flex items-center">
             <Database className="mr-2" size={20} />
-            Editar Clase
+            {t('diagramEditor.class.title')}
           </h2>
           <button
             onClick={onCancel}
+            aria-label={t('diagramEditor.actions.close')}
             className="text-gray-400 hover:text-gray-600 transition-colors"
           >
             <X size={24} />
@@ -103,14 +106,14 @@ export default function ClassEditor({ umlClass, onSave, onCancel }: ClassEditorP
           {/* Class Name */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Class Name
+              {t('diagramEditor.class.name')}
             </label>
             <input
               type="text"
               value={className}
               onChange={(e) => setClassName(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Enter class name"
+              placeholder={t('diagramEditor.class.namePlaceholder')}
             />
           </div>
 
@@ -120,14 +123,14 @@ export default function ClassEditor({ umlClass, onSave, onCancel }: ClassEditorP
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-gray-900 flex items-center">
                   <Type className="mr-2" size={18} />
-                  Attributes
+                  {t('diagramEditor.attribute.title')}
                 </h3>
                 <button
                   onClick={addAttribute}
                   className="flex items-center space-x-1 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
                 >
                   <Plus size={14} />
-                  <span>Add</span>
+                  <span>{t('diagramEditor.attribute.add')}</span>
                 </button>
               </div>
 
@@ -140,10 +143,11 @@ export default function ClassEditor({ umlClass, onSave, onCancel }: ClassEditorP
                         value={attr.name}
                         onChange={(e) => updateAttribute(index, 'name', e.target.value)}
                         className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Attribute name"
+                        placeholder={t('diagramEditor.attribute.name')}
                       />
                       <button
                         onClick={() => removeAttribute(index)}
+                        aria-label={t('diagramEditor.actions.removeAttribute')}
                         className="ml-2 text-red-600 hover:text-red-800 transition-colors"
                       >
                         <Trash2 size={14} />
@@ -168,7 +172,7 @@ export default function ClassEditor({ umlClass, onSave, onCancel }: ClassEditorP
                         value={attr.multiplicity || ''}
                         onChange={(e) => updateAttribute(index, 'multiplicity', e.target.value)}
                         className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Multiplicity"
+                        placeholder={t('diagramEditor.attribute.multiplicity')}
                       />
                     </div>
 
@@ -180,7 +184,7 @@ export default function ClassEditor({ umlClass, onSave, onCancel }: ClassEditorP
                           onChange={(e) => updateAttribute(index, 'nullable', !e.target.checked)}
                           className="mr-1"
                         />
-                        Not Null
+                        {t('diagramEditor.attribute.notNull')}
                       </label>
                       <label className="flex items-center text-sm">
                         <input
@@ -189,7 +193,7 @@ export default function ClassEditor({ umlClass, onSave, onCancel }: ClassEditorP
                           onChange={(e) => updateAttribute(index, 'unique', e.target.checked)}
                           className="mr-1"
                         />
-                        Unique
+                        {t('diagramEditor.attribute.unique')}
                       </label>
                       <label className="flex items-center text-sm">
                         <input
@@ -204,7 +208,7 @@ export default function ClassEditor({ umlClass, onSave, onCancel }: ClassEditorP
                           }}
                           className="mr-1"
                         />
-                        Primary Key
+                        {t('diagramEditor.attribute.primaryKey')}
                       </label>
                       <label className="flex items-center text-sm">
                         <input
@@ -219,7 +223,7 @@ export default function ClassEditor({ umlClass, onSave, onCancel }: ClassEditorP
                           }}
                           className="mr-1"
                         />
-                        Foreign Key
+                        {t('diagramEditor.attribute.foreignKey')}
                       </label>
                     </div>
                   </div>
@@ -227,7 +231,7 @@ export default function ClassEditor({ umlClass, onSave, onCancel }: ClassEditorP
 
                 {attributes.length === 0 && (
                   <div className="text-gray-500 text-sm italic text-center py-4">
-                    No attributes. Click "Add" to create one.
+                    {t('diagramEditor.class.noAttributes')}
                   </div>
                 )}
               </div>
@@ -236,13 +240,13 @@ export default function ClassEditor({ umlClass, onSave, onCancel }: ClassEditorP
             {/* Methods Section */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Methods</h3>
+                <h3 className="text-lg font-medium text-gray-900">{t('diagramEditor.method.title')}</h3>
                 <button
                   onClick={addMethod}
                   className="flex items-center space-x-1 px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 transition-colors"
                 >
                   <Plus size={14} />
-                  <span>Add</span>
+                  <span>{t('diagramEditor.method.add')}</span>
                 </button>
               </div>
 
@@ -255,10 +259,11 @@ export default function ClassEditor({ umlClass, onSave, onCancel }: ClassEditorP
                         value={method.name}
                         onChange={(e) => updateMethod(index, 'name', e.target.value)}
                         className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Method name"
+                        placeholder={t('diagramEditor.method.name')}
                       />
                       <button
                         onClick={() => removeMethod(index)}
+                        aria-label={t('diagramEditor.actions.removeMethod')}
                         className="ml-2 text-red-600 hover:text-red-800 transition-colors"
                       >
                         <Trash2 size={14} />
@@ -296,7 +301,7 @@ export default function ClassEditor({ umlClass, onSave, onCancel }: ClassEditorP
 
                 {methods.length === 0 && (
                   <div className="text-gray-500 text-sm italic text-center py-4">
-                    No methods. Click "Add" to create one.
+                    {t('diagramEditor.class.noMethods')}
                   </div>
                 )}
               </div>
@@ -310,14 +315,14 @@ export default function ClassEditor({ umlClass, onSave, onCancel }: ClassEditorP
             onClick={onCancel}
             className="px-4 py-2 text-foreground bg-card border border-border rounded-md hover:bg-muted transition-colors"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSave}
             className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
             <Save size={16} />
-            <span>Save Class</span>
+            <span>{t('diagramEditor.class.save')}</span>
           </button>
         </div>
       </div>
