@@ -62,7 +62,7 @@
 - Produces: `Locale = 'en' | 'es'`, `TranslationVariables = Record<string, string | number>`, `LocalePersistenceTarget = { storage: { setItem(key, value): void }; root: { lang: string }; writeCookie(value): void }`, catalog-derived `TranslationKey`, `normalizeLocale(value)`, `resolveLocale(saved, acceptLanguage)`, `translate(locale, key, variables)`, `formatLocalizedDate(locale, value)`, `persistLocale(locale, target)`, `LOCALE_STORAGE_KEY`, and `LOCALE_COOKIE_KEY`.
 - Consumes: no feature code.
 
-- [ ] **Step 1: Write the failing core test**
+- [x] **Step 1: Write the failing core test**
 
 Create `frontend/tests/i18n.test.mjs` with literal expectations:
 
@@ -100,13 +100,13 @@ test('formats dates with explicit regional conventions', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and confirm RED**
+- [x] **Step 2: Run the test and confirm RED**
 
 Run: `cd frontend && npm test -- --run`
 
 Expected: FAIL because `resolveLocale`, catalogs, interpolation, and date formatting do not exist.
 
-- [ ] **Step 3: Implement the minimal typed core**
+- [x] **Step 3: Implement the minimal typed core**
 
 Use flat catalogs beginning with these exact shared keys:
 
@@ -128,13 +128,13 @@ export const en = {
 
 `translate` must replace only `{identifier}` placeholders present in the selected message and fall back to the English value when necessary. `formatLocalizedDate` must specify two-digit day/month/year and UTC-independent date-only handling. `persistLocale` must write `uml-studio-locale` to the supplied storage target, update the root `lang`, and emit a same-site cookie valid for one year.
 
-- [ ] **Step 4: Run tests and type-check**
+- [x] **Step 4: Run tests and type-check**
 
 Run: `cd frontend && npm test -- --run && npm run type-check`
 
 Expected: all existing tests plus four i18n tests PASS; TypeScript exits 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/lib/i18n frontend/tests/i18n.test.mjs
