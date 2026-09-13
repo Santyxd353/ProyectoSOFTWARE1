@@ -71,6 +71,26 @@ REPOSITORY_TEXT_MAX_BYTES=1000000
 REPOSITORY_DIFF_MAX_BYTES=1000000
 ```
 
+## Inicio rápido en Windows sin Docker
+
+Ejecuta `INICIAR_LOCAL.cmd` desde el Explorador de archivos o una terminal:
+
+```powershell
+.\INICIAR_LOCAL.cmd
+```
+
+La primera ejecución crea un PostgreSQL aislado dentro de `.local/`, genera credenciales aleatorias fuera de Git, instala dependencias cuando faltan, aplica las migraciones e inicia backend y frontend en segundo plano.
+
+Después abre `http://localhost:3000`. Los registros quedan en `.local/logs/`.
+
+Para detener todo:
+
+```powershell
+.\DETENER_LOCAL.cmd
+```
+
+Docker Desktop no es necesario. Las funciones normales, colaboración y repositorio interno pueden probarse sin claves externas. Para probar la IA online, agrega una clave válida en `backend/.env` después de la preparación inicial.
+
 ## Ejecución local
 
 Backend:

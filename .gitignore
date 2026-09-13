@@ -17,6 +17,7 @@ coverage/
 .flutter-plugins-dependencies
 
 # Generated content and caches
+.local/
 generated-projects/
 artifacts/
 *.tsbuildinfo
