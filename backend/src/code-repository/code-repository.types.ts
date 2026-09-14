@@ -12,6 +12,7 @@ export interface PublishGeneratedProjectInput {
   projectType: ProjectType;
   generator: string;
   rootPath: string;
+  manifestMetadata?: Prisma.InputJsonObject;
 }
 
 export interface RevisionSummaryDto {

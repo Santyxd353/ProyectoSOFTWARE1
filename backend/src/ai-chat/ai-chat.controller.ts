@@ -2,6 +2,11 @@ import { Controller, Post, Body, UseGuards, Request, Get } from '@nestjs/common'
 import { AiChatService } from './ai-chat.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { IsNotEmpty, IsString, IsOptional } from 'class-validator';
+import { BackendRefinementService } from './backend-refinement.service';
+import {
+  ConfirmBackendRefinementDto,
+  ProposeBackendRefinementDto,
+} from './dto/backend-refinement.dto';
 
 class GenerateUMLDto {
   @IsString()
@@ -30,7 +35,30 @@ class ChatDto {
 @Controller('ai-chat')
 @UseGuards(JwtAuthGuard)
 export class AiChatController {
-  constructor(private aiChatService: AiChatService) {}
+  constructor(
+    private aiChatService: AiChatService,
+    private readonly backendRefinement: BackendRefinementService,
+  ) {}
+
+  @Post('backend-refinement/propose')
+  proposeBackendRefinement(
+    @Body() body: ProposeBackendRefinementDto,
+    @Request() req,
+  ) {
+    return this.backendRefinement.propose(
+      body.diagramId,
+      req.user.userId,
+      body.instruction,
+    );
+  }
+
+  @Post('backend-refinement/confirm')
+  confirmBackendRefinement(
+    @Body() body: ConfirmBackendRefinementDto,
+    @Request() req,
+  ) {
+    return this.backendRefinement.confirm(body.token, req.user.userId);
+  }
 
   @Post('generate-uml')
   async generateUML(@Body() generateUMLDto: GenerateUMLDto, @Request() req) {

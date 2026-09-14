@@ -1,6 +1,8 @@
 import { ForbiddenException } from '@nestjs/common';
 import { ProjectType, RevisionStatus, Role } from '@prisma/client';
 import * as path from 'path';
+import { mkdtemp, mkdir, readFile, rm } from 'fs/promises';
+import { tmpdir } from 'os';
 import { CodeGenerationService } from './code-generation.service';
 
 describe('CodeGenerationService repository integration', () => {
@@ -123,5 +125,43 @@ describe('CodeGenerationService repository integration', () => {
       path.join('generated/project', '.env.example'),
       expect.objectContaining({ projectName: 'users-api', dbName: 'users_api' }),
     );
+  });
+
+  it('rejects a confirmed refinement when the diagram version changed', async () => {
+    await expect(service.generateSpringBootProject('diagram-1', 'user-1', {
+      features: ['HEALTH_ENDPOINT'],
+      engine: 'claude-haiku-test',
+      promptSummary: 'Add health',
+      modelVersion: 6,
+      planSummary: 'Health check',
+    })).rejects.toThrow('diagram changed');
+
+    expect(repository.publishGeneratedProject).not.toHaveBeenCalled();
+  });
+
+  it('applies only deterministic refinement features and writes traceability', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'puds-refinement-'));
+    const javaRoot = path.join(root, 'src/main/java/com/example/orders/controller');
+    await mkdir(javaRoot, { recursive: true });
+    try {
+      await (service as any).applyBackendRefinement(root, 'com.example.orders', {
+        features: ['HEALTH_ENDPOINT', 'REQUEST_LOGGING'],
+        engine: 'claude-haiku-test',
+        promptSummary: 'Add health and logs',
+        modelVersion: 8,
+        planSummary: 'Operational visibility',
+      });
+
+      expect(await readFile(path.join(javaRoot, 'HealthController.java'), 'utf8'))
+        .toContain('@RequestMapping("/api/health")');
+      expect(await readFile(
+        path.join(root, 'src/main/java/com/example/orders/config/RequestLoggingFilter.java'),
+        'utf8',
+      )).toContain('OncePerRequestFilter');
+      expect(JSON.parse(await readFile(path.join(root, 'backend-refinement.json'), 'utf8')))
+        .toMatchObject({ modelVersion: 8, features: ['HEALTH_ENDPOINT', 'REQUEST_LOGGING'] });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

@@ -103,11 +103,11 @@
 - Consumes: authorized diagram snapshot, sanitized instruction, technical restrictions, and configured cloud AI service.
 - Produces: validated structured plan/diff proposal and a confirmation token; confirmation invokes deterministic generation and records model version, summarized prompt, and engine in the immutable revision manifest.
 
-- [ ] **Step 1: Write failing tests** for secret redaction, schema rejection, no mutation during proposal, token authorization/expiry, and manifest traceability after confirmation.
-- [ ] **Step 2: Run the focused test** and confirm the missing behavior failure.
-- [ ] **Step 3: Implement proposal and confirmation endpoints** without allowing the model to write repository files directly.
-- [ ] **Step 4: Add bilingual review/apply/discard UI** to backend generation.
-- [ ] **Step 5: Run backend/frontend suites and builds** and commit the refinement flow.
+- [x] **Step 1: Write failing tests** for secret redaction, schema rejection, no mutation during proposal, token authorization/expiry, and manifest traceability after confirmation.
+- [x] **Step 2: Run the focused test** and confirm the missing behavior failure.
+- [x] **Step 3: Implement proposal and confirmation endpoints** without allowing the model to write repository files directly.
+- [x] **Step 4: Add bilingual review/apply/discard UI** to backend generation.
+- [x] **Step 5: Run backend/frontend suites and builds** and commit the refinement flow.
 
 ### Task 5: Local integration evidence and traceability closure
 

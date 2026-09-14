@@ -103,6 +103,7 @@ export class CodeRepositoryService {
       const manifest: Prisma.InputJsonValue = {
         fileCount: files.length,
         totalBytes: files.reduce((total, file) => total + file.size, 0),
+        ...(input.manifestMetadata ?? {}),
       };
       const publishedAt = new Date();
       const published = await this.prisma.$transaction(async (transaction) => {

@@ -16,6 +16,14 @@ import { createWriteStream } from 'fs';
 import * as ejs from 'ejs';
 import { buildApiArtifacts } from './api-artifacts';
 
+export interface BackendRefinementInput {
+  features: string[];
+  engine: string;
+  promptSummary: string;
+  modelVersion: number;
+  planSummary: string;
+}
+
 @Injectable()
 export class CodeGenerationService {
   constructor(
@@ -24,7 +32,11 @@ export class CodeGenerationService {
     private readonly authorization: AuthorizationService,
   ) {}
 
-  async generateSpringBootProject(diagramId: string, userId: string) {
+  async generateSpringBootProject(
+    diagramId: string,
+    userId: string,
+    refinement?: BackendRefinementInput,
+  ) {
     console.log(`🚀 Generating Spring Boot project for diagram: ${diagramId}`);
 
     // Get diagram data from JSON field (NOT from relational tables)
@@ -42,6 +54,11 @@ export class CodeGenerationService {
       userId,
       'repository:generate',
     );
+    if (refinement && refinement.modelVersion !== diagram.version) {
+      throw new BadRequestException(
+        'The diagram changed after the refinement proposal; request a new proposal',
+      );
+    }
 
     // Extract classes and relations from the JSON data field
     const diagramData = diagram.data as any;
@@ -87,6 +104,11 @@ export class CodeGenerationService {
       await this.writeApiArtifacts(projectPath, diagram.name, transformedClasses);
       console.log('✅ OpenAPI and Postman artifacts generated');
 
+      if (refinement) {
+        await this.applyBackendRefinement(projectPath, basePackage, refinement);
+        console.log('✅ Confirmed backend refinement applied');
+      }
+
       // Create ZIP file
       const zipPath = `${projectPath}.zip`;
       await this.createZipFile(projectPath, zipPath);
@@ -100,6 +122,15 @@ export class CodeGenerationService {
         projectType: ProjectType.SPRING_BOOT,
         generator: 'spring-ejs@1',
         rootPath: projectPath,
+        manifestMetadata: refinement ? {
+          refinement: {
+            engine: refinement.engine,
+            promptSummary: refinement.promptSummary,
+            planSummary: refinement.planSummary,
+            features: refinement.features,
+            modelVersion: refinement.modelVersion,
+          },
+        } : undefined,
       });
 
       // Save generation record (with retry logic)
@@ -889,6 +920,95 @@ export class CodeGenerationService {
         'utf-8',
       ),
     ]);
+  }
+
+  private async applyBackendRefinement(
+    projectPath: string,
+    basePackage: string,
+    refinement: BackendRefinementInput,
+  ) {
+    const supported = new Set(['HEALTH_ENDPOINT', 'REQUEST_LOGGING', 'API_DOCUMENTATION']);
+    const features = [...new Set(refinement.features)].filter((feature) => supported.has(feature));
+    if (features.length !== refinement.features.length) {
+      throw new BadRequestException('Unsupported backend refinement feature');
+    }
+    const javaRoot = path.join(projectPath, 'src/main/java', ...basePackage.split('.'));
+    const writes: Promise<void>[] = [];
+    if (features.includes('HEALTH_ENDPOINT')) {
+      const healthController = `package ${basePackage}.controller;
+
+import java.time.Instant;
+import java.util.Map;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/health")
+public class HealthController {
+    @GetMapping
+    public ResponseEntity<Map<String, Object>> health() {
+        return ResponseEntity.ok(Map.of("status", "UP", "timestamp", Instant.now().toString()));
+    }
+}
+`;
+      writes.push(fs.writeFile(
+        path.join(javaRoot, 'controller', 'HealthController.java'),
+        healthController,
+        'utf-8',
+      ));
+    }
+    if (features.includes('REQUEST_LOGGING')) {
+      await fs.mkdir(path.join(javaRoot, 'config'), { recursive: true });
+      const requestLogging = `package ${basePackage}.config;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.logging.Logger;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+@Component
+public class RequestLoggingFilter extends OncePerRequestFilter {
+    private static final Logger LOGGER = Logger.getLogger(RequestLoggingFilter.class.getName());
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+            throws ServletException, IOException {
+        long startedAt = System.currentTimeMillis();
+        try {
+            chain.doFilter(request, response);
+        } finally {
+            LOGGER.info(() -> request.getMethod() + " " + request.getRequestURI()
+                    + " -> " + response.getStatus() + " (" + (System.currentTimeMillis() - startedAt) + " ms)");
+        }
+    }
+}
+`;
+      writes.push(fs.writeFile(
+        path.join(javaRoot, 'config', 'RequestLoggingFilter.java'),
+        requestLogging,
+        'utf-8',
+      ));
+    }
+    const traceability = {
+      schemaVersion: 'puds-backend-refinement-1',
+      engine: refinement.engine,
+      promptSummary: refinement.promptSummary,
+      planSummary: refinement.planSummary,
+      modelVersion: refinement.modelVersion,
+      features,
+    };
+    writes.push(fs.writeFile(
+      path.join(projectPath, 'backend-refinement.json'),
+      JSON.stringify(traceability, null, 2),
+      'utf-8',
+    ));
+    await Promise.all(writes);
   }
 
   private async createZipFile(projectPath: string, zipPath: string): Promise<void> {

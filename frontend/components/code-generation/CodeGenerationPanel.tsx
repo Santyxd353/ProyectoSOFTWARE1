@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Download, Code, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
-import { codeGenAPI } from '@/lib/api';
+import { aiAPI, codeGenAPI } from '@/lib/api';
 import { useI18n } from '@/components/i18n/I18nProvider';
 
 interface CodeGenerationPanelProps {
@@ -16,6 +16,9 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
   const [backendResult, setBackendResult] = useState<any>(null);
   const [frontendResult, setFrontendResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refinementInstruction, setRefinementInstruction] = useState('');
+  const [refinementProposal, setRefinementProposal] = useState<any>(null);
+  const [isRefining, setIsRefining] = useState(false);
   const { t } = useI18n();
 
   const handleGenerateSpringBoot = async () => {
@@ -102,6 +105,37 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
     }
   };
 
+  const handleProposeRefinement = async () => {
+    if (!refinementInstruction.trim()) return;
+    setIsRefining(true);
+    setError(null);
+    try {
+      setRefinementProposal(
+        await aiAPI.proposeBackendRefinement(diagramId, refinementInstruction.trim()),
+      );
+    } catch (error: any) {
+      setError(error.response?.data?.message || t('generation.refinement.proposalError'));
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
+  const handleConfirmRefinement = async () => {
+    if (!refinementProposal?.token) return;
+    setIsRefining(true);
+    setError(null);
+    try {
+      const result = await aiAPI.confirmBackendRefinement(refinementProposal.token);
+      setBackendResult(result);
+      setRefinementProposal(null);
+      setRefinementInstruction('');
+    } catch (error: any) {
+      setError(error.response?.data?.message || t('generation.refinement.confirmError'));
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
   return (
     <div className="bg-card rounded-lg shadow-lg border border-border p-6">
       <div className="flex items-center space-x-2 mb-4">
@@ -168,6 +202,63 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
               <li>• {t('generation.spring.featureDatabase')}</li>
               <li>• {t('generation.spring.featureArtifacts')}</li>
             </ul>
+          </div>
+
+          <div className="border-t border-gray-200 mt-4 pt-4">
+            <h5 className="text-sm font-semibold text-gray-900 mb-1">
+              {t('generation.refinement.title')}
+            </h5>
+            <p className="text-xs text-gray-600 mb-2">
+              {t('generation.refinement.description')}
+            </p>
+            <textarea
+              value={refinementInstruction}
+              onChange={(event) => setRefinementInstruction(event.target.value)}
+              maxLength={2000}
+              rows={3}
+              placeholder={t('generation.refinement.placeholder')}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <button
+              onClick={handleProposeRefinement}
+              disabled={isRefining || !refinementInstruction.trim()}
+              className="mt-2 w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isRefining ? t('generation.refinement.processing') : t('generation.refinement.propose')}
+            </button>
+
+            {refinementProposal && (
+              <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3">
+                <p className="text-sm font-medium text-blue-900">{refinementProposal.summary}</p>
+                <ul className="mt-2 space-y-1 text-xs text-blue-800">
+                  {refinementProposal.changes.map((change: any) => (
+                    <li key={change.feature}>• {change.feature}: {change.rationale}</li>
+                  ))}
+                  {refinementProposal.warnings.map((warning: string) => (
+                    <li key={warning} className="text-amber-800">• {warning}</li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-xs text-blue-700">
+                  {t('generation.refinement.confirmHint')}
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={handleConfirmRefinement}
+                    disabled={isRefining}
+                    className="flex-1 rounded-md bg-blue-700 px-3 py-2 text-xs font-medium text-white hover:bg-blue-800 disabled:opacity-50"
+                  >
+                    {t('generation.refinement.apply')}
+                  </button>
+                  <button
+                    onClick={() => setRefinementProposal(null)}
+                    disabled={isRefining}
+                    className="flex-1 rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-800 hover:bg-blue-100 disabled:opacity-50"
+                  >
+                    {t('generation.refinement.discard')}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

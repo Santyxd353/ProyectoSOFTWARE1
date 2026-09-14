@@ -172,6 +172,28 @@ describe('CodeRepositoryService publication', () => {
     expect(auditActions).toEqual([AuditAction.REVISION_PUBLISHED]);
   });
 
+  it('stores confirmed refinement traceability in the published manifest', async () => {
+    const result = await service.publishGeneratedProject({
+      ...input,
+      manifestMetadata: {
+        refinement: {
+          engine: 'claude-haiku-test',
+          promptSummary: 'Add health checks',
+          modelVersion: 4,
+        },
+      },
+    });
+
+    expect(result.manifest).toEqual(expect.objectContaining({
+      fileCount: 1,
+      refinement: expect.objectContaining({
+        engine: 'claude-haiku-test',
+        promptSummary: 'Add health checks',
+        modelVersion: 4,
+      }),
+    }));
+  });
+
   it('marks a revision failed and cleans stored objects after storage failure', async () => {
     failStorage = true;
 

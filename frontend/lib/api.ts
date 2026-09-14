@@ -228,6 +228,29 @@ export const diagramAPI = {
 
 // AI Chat API
 export const aiAPI = {
+  proposeBackendRefinement: async (diagramId: string, instruction: string) => {
+    const response = await api.post('/ai-chat/backend-refinement/propose', {
+      diagramId,
+      instruction,
+    }, { timeout: 60000 });
+    return response.data as {
+      summary: string;
+      changes: Array<{ feature: string; rationale: string }>;
+      warnings: string[];
+      promptSummary: string;
+      engine: string;
+      expiresAt: string;
+      token: string;
+    };
+  },
+
+  confirmBackendRefinement: async (token: string) => {
+    const response = await api.post('/ai-chat/backend-refinement/confirm', { token }, {
+      timeout: 60000,
+    });
+    return response.data;
+  },
+
   generateUML: async (prompt: string, diagramId: string) => {
     const response = await api.post('/ai-chat/generate-uml', {
       prompt,
