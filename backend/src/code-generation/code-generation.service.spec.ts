@@ -60,6 +60,7 @@ describe('CodeGenerationService repository integration', () => {
     );
     jest.spyOn(service as any, 'createProjectStructure').mockResolvedValue(undefined);
     jest.spyOn(service as any, 'generateFromTemplates').mockResolvedValue(undefined);
+    jest.spyOn(service as any, 'writeApiArtifacts').mockResolvedValue(undefined);
     jest.spyOn(service as any, 'createZipFile').mockResolvedValue(undefined);
   });
 
@@ -81,6 +82,11 @@ describe('CodeGenerationService repository integration', () => {
         projectType: ProjectType.SPRING_BOOT,
         generator: 'spring-ejs@1',
       }),
+    );
+    expect((service as any).writeApiArtifacts).toHaveBeenCalledWith(
+      expect.any(String),
+      'Users API',
+      expect.arrayContaining([expect.objectContaining({ className: 'User' })]),
     );
   });
 

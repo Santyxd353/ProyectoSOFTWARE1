@@ -14,6 +14,7 @@ import * as path from 'path';
 import * as archiver from 'archiver';
 import { createWriteStream } from 'fs';
 import * as ejs from 'ejs';
+import { buildApiArtifacts } from './api-artifacts';
 
 @Injectable()
 export class CodeGenerationService {
@@ -82,6 +83,9 @@ export class CodeGenerationService {
         relations, // AÑADIDO: Pasar relaciones para generar tablas intermedias
       });
       console.log('✅ Files generated from templates');
+
+      await this.writeApiArtifacts(projectPath, diagram.name, transformedClasses);
+      console.log('✅ OpenAPI and Postman artifacts generated');
 
       // Create ZIP file
       const zipPath = `${projectPath}.zip`;
@@ -869,6 +873,22 @@ export class CodeGenerationService {
     const template = await fs.readFile(templatePath, 'utf-8');
     const rendered = ejs.render(template, data);
     await fs.writeFile(outputPath, rendered);
+  }
+
+  private async writeApiArtifacts(projectPath: string, projectName: string, classes: any[]) {
+    const artifacts = buildApiArtifacts(projectName, classes);
+    await Promise.all([
+      fs.writeFile(
+        path.join(projectPath, 'openapi.json'),
+        JSON.stringify(artifacts.openapi, null, 2),
+        'utf-8',
+      ),
+      fs.writeFile(
+        path.join(projectPath, 'postman_collection.json'),
+        JSON.stringify(artifacts.postman, null, 2),
+        'utf-8',
+      ),
+    ]);
   }
 
   private async createZipFile(projectPath: string, zipPath: string): Promise<void> {

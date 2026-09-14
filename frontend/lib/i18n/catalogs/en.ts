@@ -361,6 +361,7 @@ export const en = {
   'generation.spring.featureData': 'JPA entities, DTOs, and repositories',
   'generation.spring.featureRest': 'REST controllers with CRUD endpoints',
   'generation.spring.featureDatabase': 'PostgreSQL database configuration',
+  'generation.spring.featureArtifacts': 'OpenAPI specification and Postman CRUD collection',
   'generation.flutter.featureCrud': 'Models, services, and CRUD screens',
   'generation.flutter.featureMaterial': 'Material Design interface',
   'generation.flutter.featureApi': 'Automatic Spring Boot API configuration',

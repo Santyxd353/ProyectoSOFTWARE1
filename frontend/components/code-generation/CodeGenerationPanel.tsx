@@ -166,6 +166,7 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
               <li>• {t('generation.spring.featureData')}</li>
               <li>• {t('generation.spring.featureRest')}</li>
               <li>• {t('generation.spring.featureDatabase')}</li>
+              <li>• {t('generation.spring.featureArtifacts')}</li>
             </ul>
           </div>
         </div>

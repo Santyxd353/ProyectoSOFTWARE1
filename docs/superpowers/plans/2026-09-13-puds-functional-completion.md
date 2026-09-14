@@ -80,11 +80,11 @@
 - Consumes: normalized UML classes and a sample base URL variable.
 - Produces: valid OpenAPI 3.0 JSON and Postman Collection 2.1 JSON containing CRUD requests, example bodies, status assertions, and no credentials.
 
-- [ ] **Step 1: Write failing pure-function tests** that validate schema versions, CRUD coverage, safe variables, examples, and test assertions.
-- [ ] **Step 2: Run the focused test** and verify it fails because the artifact generator is absent.
-- [ ] **Step 3: Implement deterministic artifact generation** and write both files into every Spring Boot project before repository publication.
-- [ ] **Step 4: Surface the included artifacts in the bilingual generation panel.**
-- [ ] **Step 5: Run all affected tests/builds** and commit the test artifact capability.
+- [x] **Step 1: Write failing pure-function tests** that validate schema versions, CRUD coverage, safe variables, examples, and test assertions.
+- [x] **Step 2: Run the focused test** and verify it fails because the artifact generator is absent.
+- [x] **Step 3: Implement deterministic artifact generation** and write both files into every Spring Boot project before repository publication.
+- [x] **Step 4: Surface the included artifacts in the bilingual generation panel.**
+- [x] **Step 5: Run all affected tests/builds** and commit the test artifact capability.
 
 ### Task 4: Confirmed AI backend refinement
 
