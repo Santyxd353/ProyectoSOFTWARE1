@@ -8,6 +8,7 @@ import { CollaborationModule } from './collaboration/collaboration.module';
 import { AiChatModule } from './ai-chat/ai-chat.module';
 import { CodeGenerationModule } from './code-generation/code-generation.module';
 import { CodeRepositoryModule } from './code-repository/code-repository.module';
+import { InvitationModule } from './invitation/invitation.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { CodeRepositoryModule } from './code-repository/code-repository.module';
     AiChatModule,
     CodeGenerationModule,
     CodeRepositoryModule,
+    InvitationModule,
   ],
 })
 export class AppModule {}

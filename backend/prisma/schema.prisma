@@ -20,13 +20,15 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  ownedWorkspaces   Workspace[]             @relation("WorkspaceOwner")
-  collaborations    WorkspaceCollaborator[]
-  diagramActivities DiagramActivity[]
-  generatedCodes    GeneratedCode[]
-  codeRevisions     CodeRevision[]          @relation("RevisionAuthor")
-  reviewComments    ReviewComment[]
-  auditEvents       AuditEvent[]            @relation("AuditActor")
+  ownedWorkspaces     Workspace[]             @relation("WorkspaceOwner")
+  collaborations      WorkspaceCollaborator[]
+  diagramActivities   DiagramActivity[]
+  generatedCodes      GeneratedCode[]
+  codeRevisions       CodeRevision[]          @relation("RevisionAuthor")
+  reviewComments      ReviewComment[]
+  auditEvents         AuditEvent[]            @relation("AuditActor")
+  sentInvitations     WorkspaceInvitation[]   @relation("InvitationAuthor")
+  acceptedInvitations WorkspaceInvitation[]   @relation("InvitationRecipient")
 
   @@map("users")
 }
@@ -48,6 +50,7 @@ model Workspace {
   diagrams      Diagram[]
   codeRevisions CodeRevision[]
   auditEvents   AuditEvent[]
+  invitations   WorkspaceInvitation[]
 
   @@map("workspaces")
 }
@@ -74,12 +77,13 @@ model WorkspaceCollaborator {
 }
 
 model Diagram {
-  id        String   @id @default(cuid())
-  name      String
-  data      Json     @default("{}")
-  version   Int      @default(1)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String    @id @default(cuid())
+  name       String
+  data       Json      @default("{}")
+  version    Int       @default(1)
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   // Foreign Keys
   workspaceId String
@@ -92,7 +96,34 @@ model Diagram {
   generatedCode GeneratedCode[]
   codeRevisions CodeRevision[]
 
+  @@index([workspaceId, archivedAt])
   @@map("diagrams")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
+model WorkspaceInvitation {
+  id           String           @id @default(cuid())
+  workspaceId  String
+  email        String
+  role         Role             @default(VIEWER)
+  status       InvitationStatus @default(PENDING)
+  invitedById  String
+  acceptedById String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy  User      @relation("InvitationAuthor", fields: [invitedById], references: [id], onDelete: Cascade)
+  acceptedBy User?     @relation("InvitationRecipient", fields: [acceptedById], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, email])
+  @@index([email, status])
+  @@map("workspace_invitations")
 }
 
 model UMLClass {
@@ -242,6 +273,13 @@ enum AuditAction {
   MEMBER_ROLE_UPDATED
   MEMBER_REMOVED
   REPOSITORY_POLICY_UPDATED
+  WORKSPACE_UPDATED
+  WORKSPACE_OWNERSHIP_TRANSFERRED
+  INVITATION_CREATED
+  INVITATION_CLAIMED
+  INVITATION_REVOKED
+  DIAGRAM_ARCHIVED
+  DIAGRAM_RESTORED
 }
 
 model CodeRevision {

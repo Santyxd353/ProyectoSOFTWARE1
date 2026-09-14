@@ -90,10 +90,29 @@ test('catalogs include workspace, members and repository contracts', () => {
     'workspace.tabs.code', 'workspace.tabs.members', 'workspace.stats.diagrams',
     'workspace.stats.collaborators', 'workspace.stats.created', 'workspace.diagram.create',
     'workspace.diagram.empty', 'workspace.invite.title', 'workspace.deleteDialog.title',
+    'workspace.diagram.archiveLabel', 'workspace.diagram.archivedList',
+    'workspace.diagram.restoreLabel', 'workspace.archiveDialog.warning',
     'members.title', 'members.allowViewerComments', 'members.removeConfirm',
     'repository.empty', 'repository.revision', 'repository.files', 'repository.preview',
     'repository.compare.title', 'repository.download', 'repository.restore.action',
     'repository.comments.title', 'roles.owner', 'roles.editor', 'roles.viewer',
+  ];
+
+  for (const key of requiredKeys) {
+    assert.equal(typeof enModule.en?.[key], 'string', `missing English key: ${key}`);
+    assert.equal(typeof esModule.es?.[key], 'string', `missing Spanish key: ${key}`);
+  }
+});
+
+test('catalogs include the documented project administration flows', () => {
+  const requiredKeys = [
+    'dashboard.search', 'dashboard.sort.label', 'dashboard.sort.updatedDesc',
+    'dashboard.sort.updatedAsc', 'dashboard.sort.nameAsc', 'dashboard.sort.nameDesc',
+    'workspace.settings.title', 'workspace.settings.save', 'workspace.settings.saved',
+    'workspace.invitations.pending', 'workspace.invitations.revoke',
+    'workspace.invitations.pendingSuccess', 'workspace.transfer.title',
+    'workspace.transfer.member', 'workspace.transfer.confirmation',
+    'workspace.transfer.action', 'workspace.transfer.success',
   ];
 
   for (const key of requiredKeys) {

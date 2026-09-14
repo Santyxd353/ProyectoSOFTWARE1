@@ -4,43 +4,42 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
+import { InvitationService } from '../invitation/invitation.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private readonly invitations: InvitationService,
   ) {}
 
   async register(registerDto: RegisterDto) {
-    const { email, name, password } = registerDto;
-
-    // Check if user already exists
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (existingUser) {
-      throw new ConflictException('User with this email already exists');
-    }
+    const email = registerDto.email.trim().toLowerCase();
+    const name = registerDto.name.trim();
+    const { password } = registerDto;
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        name,
-        password: hashedPassword,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        avatar: true,
-        createdAt: true,
-      },
+    const user = await this.prisma.$transaction(async (db) => {
+      const existingUser = await db.user.findUnique({ where: { email } });
+      if (existingUser) {
+        throw new ConflictException('User with this email already exists');
+      }
+
+      const created = await db.user.create({
+        data: { email, name, password: hashedPassword },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          avatar: true,
+          createdAt: true,
+        },
+      });
+      await this.invitations.claimForUser(created.id, created.email, db);
+      return created;
     });
 
     // Generate JWT token

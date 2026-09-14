@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Users, Calendar, FileText, ArrowLeft, Settings, Share, X, Trash2, Code2 } from 'lucide-react';
+import { Plus, Users, Calendar, FileText, ArrowLeft, Settings, Share, X, Archive, RotateCcw, Code2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { diagramAPI } from '@/lib/api';
@@ -11,9 +11,15 @@ import { workspaceAPI } from '@/lib/api';
 import ThemeToggle from '@/components/theme/ThemeToggle';
 import CodeRepositoryPanel from '@/components/repository/CodeRepositoryPanel';
 import MemberManagement from '@/components/workspace/MemberManagement';
+import WorkspaceSettings from '@/components/workspace/WorkspaceSettings';
 import { Role } from '@/types/workspace';
 import LanguageToggle from '@/components/i18n/LanguageToggle';
 import { useI18n } from '@/components/i18n/I18nProvider';
+import {
+  moveDiagramToArchive,
+  normalizeWorkspaceDiagrams,
+  restoreDiagramInState,
+} from '@/lib/diagram-lifecycle';
 
 interface WorkspacePageProps {
   params: {
@@ -26,16 +32,18 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
   const { user } = useAuthStore();
   const { currentWorkspace, fetchWorkspaceById, isLoading } = useWorkspaceStore();
   const [diagrams, setDiagrams] = useState<Diagram[]>([]);
+  const [archivedDiagrams, setArchivedDiagrams] = useState<Diagram[]>([]);
   const [isCreatingDiagram, setIsCreatingDiagram] = useState(false);
   const [newDiagramName, setNewDiagramName] = useState('');
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [collaboratorEmail, setCollaboratorEmail] = useState('');
   const [collaboratorRole, setCollaboratorRole] = useState<'EDITOR' | 'VIEWER'>('VIEWER');
   const [isInviting, setIsInviting] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [diagramToDelete, setDiagramToDelete] = useState<Diagram | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'diagrams' | 'code' | 'members'>('diagrams');
+  const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
+  const [diagramToArchive, setDiagramToArchive] = useState<Diagram | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [restoringDiagramId, setRestoringDiagramId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'diagrams' | 'code' | 'members' | 'settings'>('diagrams');
   const { t, formatDate } = useI18n();
 
   useEffect(() => {
@@ -47,13 +55,10 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
   }, [params.workspaceId, user, router, fetchWorkspaceById]);
 
   useEffect(() => {
-    if (currentWorkspace?.diagrams) {
-      // Ensure all diagrams have the required data structure
-      const validDiagrams = currentWorkspace.diagrams.map(diagram => ({
-        ...diagram,
-        data: diagram.data || { classes: [], relations: [] }
-      }));
-      setDiagrams(validDiagrams);
+    if (currentWorkspace) {
+      const normalized = normalizeWorkspaceDiagrams(currentWorkspace);
+      setDiagrams(normalized.diagrams);
+      setArchivedDiagrams(normalized.archivedDiagrams);
     }
   }, [currentWorkspace]);
 
@@ -86,7 +91,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
 
     try {
       setIsInviting(true);
-      await workspaceAPI.addCollaborator(params.workspaceId, collaboratorEmail, collaboratorRole);
+      const result = await workspaceAPI.addCollaborator(params.workspaceId, collaboratorEmail, collaboratorRole);
 
       // Refresh workspace data
       await fetchWorkspaceById(params.workspaceId);
@@ -96,7 +101,9 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
       setCollaboratorEmail('');
       setCollaboratorRole('VIEWER');
 
-      alert(t('workspace.invite.success'));
+      alert(t(result.kind === 'invitation'
+        ? 'workspace.invitations.pendingSuccess'
+        : 'workspace.invite.success'));
     } catch (error: any) {
       console.error('Error inviting collaborator:', error);
       alert(error.response?.data?.message || t('workspace.invite.error'));
@@ -105,33 +112,46 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
     }
   };
 
-  const handleDeleteDiagram = async () => {
-    if (!diagramToDelete) return;
+  const handleArchiveDiagram = async () => {
+    if (!diagramToArchive) return;
 
     try {
-      setIsDeleting(true);
-      await diagramAPI.deleteDiagram(diagramToDelete.id);
-
-      // Remove from local state
-      setDiagrams(prev => prev.filter(d => d.id !== diagramToDelete.id));
-
-      // Close modal
-      setIsDeleteModalOpen(false);
-      setDiagramToDelete(null);
-
-      alert(t('workspace.diagram.deleteSuccess'));
+      setIsArchiving(true);
+      await diagramAPI.archiveDiagram(diagramToArchive.id);
+      const next = moveDiagramToArchive(diagrams, archivedDiagrams, diagramToArchive.id);
+      setDiagrams(next.diagrams);
+      setArchivedDiagrams(next.archivedDiagrams);
+      setIsArchiveModalOpen(false);
+      setDiagramToArchive(null);
+      alert(t('workspace.diagram.archiveSuccess'));
     } catch (error: any) {
-      console.error('Error deleting diagram:', error);
-      alert(error.response?.data?.message || t('workspace.diagram.deleteError'));
+      console.error('Error archiving diagram:', error);
+      alert(error.response?.data?.message || t('workspace.diagram.archiveError'));
     } finally {
-      setIsDeleting(false);
+      setIsArchiving(false);
     }
   };
 
-  const openDeleteModal = (diagram: Diagram, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click
-    setDiagramToDelete(diagram);
-    setIsDeleteModalOpen(true);
+  const handleRestoreDiagram = async (diagramId: string) => {
+    try {
+      setRestoringDiagramId(diagramId);
+      await diagramAPI.restoreDiagram(diagramId);
+      const next = restoreDiagramInState(diagrams, archivedDiagrams, diagramId);
+      setDiagrams(next.diagrams);
+      setArchivedDiagrams(next.archivedDiagrams);
+      alert(t('workspace.diagram.restoreSuccess'));
+    } catch (error: any) {
+      console.error('Error restoring diagram:', error);
+      alert(error.response?.data?.message || t('workspace.diagram.restoreError'));
+    } finally {
+      setRestoringDiagramId(null);
+    }
+  };
+
+  const openArchiveModal = (diagram: Diagram, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDiagramToArchive(diagram);
+    setIsArchiveModalOpen(true);
   };
 
   if (!user) {
@@ -189,7 +209,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                   <span>{t('workspace.share')}</span>
                 </button>
               )}
-              <button onClick={() => setActiveTab('members')} className="flex min-h-11 items-center space-x-2 rounded-md bg-gray-100 px-4 text-gray-700 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <button onClick={() => setActiveTab(currentRole === Role.OWNER ? 'settings' : 'members')} className="flex min-h-11 items-center space-x-2 rounded-md bg-gray-100 px-4 text-gray-700 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <Settings size={16} />
                 <span>{t('workspace.settings')}</span>
               </button>
@@ -206,6 +226,9 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
               { id: 'diagrams' as const, label: t('workspace.tabs.diagrams'), icon: FileText },
               { id: 'code' as const, label: t('workspace.tabs.code'), icon: Code2 },
               { id: 'members' as const, label: t('workspace.tabs.members'), icon: Users },
+              ...(currentRole === Role.OWNER
+                ? [{ id: 'settings' as const, label: t('workspace.settings'), icon: Settings }]
+                : []),
             ].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -338,12 +361,12 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                         <div className="flex items-center space-x-2">
                           <span className="text-xs text-gray-500">v{diagram.version}</span>
                           <button
-                            onClick={(e) => openDeleteModal(diagram, e)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 rounded"
-                            title={t('workspace.diagram.deleteLabel')}
-                            aria-label={t('workspace.diagram.deleteLabel')}
+                            onClick={(e) => openArchiveModal(diagram, e)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded"
+                            title={t('workspace.diagram.archiveLabel')}
+                            aria-label={t('workspace.diagram.archiveLabel')}
                           >
-                            <Trash2 size={16} className="text-red-600" />
+                            <Archive size={16} className="text-muted-foreground" />
                           </button>
                         </div>
                       </div>
@@ -360,6 +383,39 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
               )}
             </div>
           </div>
+
+          {currentRole === Role.OWNER && (
+            <div className="bg-card border border-border shadow-sm rounded-lg mt-8">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  {t('workspace.diagram.archivedList')}
+                </h3>
+                {archivedDiagrams.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t('workspace.diagram.archivedEmpty')}</p>
+                ) : (
+                  <div className="space-y-3">
+                    {archivedDiagrams.map((diagram) => (
+                      <div key={diagram.id} className="flex items-center justify-between rounded-md border border-border p-3">
+                        <div>
+                          <p className="font-medium text-foreground">{diagram.name}</p>
+                          <p className="text-xs text-muted-foreground">v{diagram.version}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRestoreDiagram(diagram.id)}
+                          disabled={restoringDiagramId === diagram.id}
+                          className="flex min-h-11 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                        >
+                          <RotateCcw size={16} />
+                          {t('workspace.diagram.restoreLabel')}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Collaborators */}
           {currentWorkspace.collaborators.length > 0 && (
@@ -422,6 +478,17 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
               workspaceId={params.workspaceId}
               role={currentRole}
               onWorkspaceChanged={() => fetchWorkspaceById(params.workspaceId)}
+            />
+          )}
+
+          {activeTab === 'settings' && currentRole === Role.OWNER && (
+            <WorkspaceSettings
+              workspace={currentWorkspace}
+              onWorkspaceChanged={() => fetchWorkspaceById(params.workspaceId)}
+              onOwnershipTransferred={async () => {
+                await fetchWorkspaceById(params.workspaceId);
+                setActiveTab('members');
+              }}
             />
           )}
         </div>
@@ -500,17 +567,17 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
         </div>
       )}
 
-      {/* Delete Diagram Confirmation Modal */}
-      {isDeleteModalOpen && diagramToDelete && (
+      {/* Archive Diagram Confirmation Modal */}
+      {isArchiveModalOpen && diagramToArchive && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
           <div className="relative bg-card border border-border rounded-lg shadow-xl w-full max-w-md mx-4">
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">{t('workspace.deleteDialog.title')}</h3>
+              <h3 className="text-lg font-semibold text-gray-800">{t('workspace.archiveDialog.title')}</h3>
               <button
-                onClick={() => setIsDeleteModalOpen(false)}
+                onClick={() => setIsArchiveModalOpen(false)}
                 aria-label={t('common.close')}
                 className="text-gray-400 hover:text-gray-600"
-                disabled={isDeleting}
+                disabled={isArchiving}
               >
                 <X size={20} />
               </button>
@@ -519,16 +586,16 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
             <div className="p-6">
               <div className="flex items-center space-x-3 mb-4">
                 <div className="flex-shrink-0">
-                  <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
-                    <Trash2 className="h-6 w-6 text-red-600" />
+                  <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-muted">
+                    <Archive className="h-6 w-6 text-muted-foreground" />
                   </div>
                 </div>
                 <div className="flex-1">
                   <p className="text-sm text-gray-700">
-                    {t('workspace.deleteDialog.question', { name: diagramToDelete.name })}
+                    {t('workspace.archiveDialog.question', { name: diagramToArchive.name })}
                   </p>
-                  <p className="mt-2 text-sm text-red-600">
-                    {t('workspace.deleteDialog.warning')}
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {t('workspace.archiveDialog.warning')}
                   </p>
                 </div>
               </div>
@@ -536,26 +603,26 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   type="button"
-                  onClick={() => setIsDeleteModalOpen(false)}
-                  disabled={isDeleting}
+                  onClick={() => setIsArchiveModalOpen(false)}
+                  disabled={isArchiving}
                   className="px-4 py-2 border border-gray-300 rounded text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {t('common.cancel')}
                 </button>
                 <button
-                  onClick={handleDeleteDiagram}
-                  disabled={isDeleting}
-                  className="px-4 py-2 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  onClick={handleArchiveDiagram}
+                  disabled={isArchiving}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
-                  {isDeleting ? (
+                  {isArchiving ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>{t('workspace.deleteDialog.deleting')}</span>
+                      <span>{t('workspace.archiveDialog.archiving')}</span>
                     </>
                   ) : (
                     <>
-                      <Trash2 size={16} />
-                      <span>{t('workspace.deleteDialog.action')}</span>
+                      <Archive size={16} />
+                      <span>{t('workspace.archiveDialog.action')}</span>
                     </>
                   )}
                 </button>

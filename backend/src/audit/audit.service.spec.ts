@@ -1,4 +1,6 @@
 import { AuditService } from './audit.service';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 describe('AuditService', () => {
   const prisma = {
@@ -60,5 +62,25 @@ describe('AuditService', () => {
     ).rejects.toThrow('Audit metadata exceeds 8192 bytes');
 
     expect(prisma.auditEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('declares the complete project lifecycle persistence contract', () => {
+    const schema = readFileSync(join(process.cwd(), 'prisma', 'schema.prisma'), 'utf8');
+
+    expect(schema).toContain('archivedAt DateTime?');
+    expect(schema).toContain('enum InvitationStatus');
+    expect(schema).toContain('model WorkspaceInvitation');
+    expect(schema).toContain('@@unique([workspaceId, email])');
+    for (const action of [
+      'WORKSPACE_UPDATED',
+      'WORKSPACE_OWNERSHIP_TRANSFERRED',
+      'INVITATION_CREATED',
+      'INVITATION_CLAIMED',
+      'INVITATION_REVOKED',
+      'DIAGRAM_ARCHIVED',
+      'DIAGRAM_RESTORED',
+    ]) {
+      expect(schema).toContain(action);
+    }
   });
 });

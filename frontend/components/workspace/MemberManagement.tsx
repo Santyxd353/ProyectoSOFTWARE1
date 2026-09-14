@@ -1,13 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, Shield, Trash2 } from 'lucide-react';
+import { Loader2, Mail, Shield, Trash2, XCircle } from 'lucide-react';
 import { workspaceAPI } from '@/lib/api';
 import { repositoryCapabilities } from '@/lib/repository-capabilities';
 import {
   Role,
   WorkspaceMember,
   WorkspaceMembersResponse,
+  WorkspaceInvitation,
 } from '@/types/workspace';
 import { useI18n } from '@/components/i18n/I18nProvider';
 
@@ -22,17 +23,23 @@ export default function MemberManagement({ workspaceId, role, onWorkspaceChanged
   const [busyId, setBusyId] = useState('');
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
+  const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
   const { canManageMembers } = repositoryCapabilities(role, false);
   const { t } = useI18n();
 
   const load = useCallback(async () => {
     setError('');
     try {
-      setData(await workspaceAPI.getMembers(workspaceId));
+      const [members, pendingInvitations] = await Promise.all([
+        workspaceAPI.getMembers(workspaceId),
+        canManageMembers ? workspaceAPI.getInvitations(workspaceId) : Promise.resolve([]),
+      ]);
+      setData(members);
+      setInvitations(pendingInvitations);
     } catch (requestError: any) {
       setError(requestError.response?.data?.message || t('members.loadError'));
     }
-  }, [t, workspaceId]);
+  }, [canManageMembers, t, workspaceId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -77,6 +84,22 @@ export default function MemberManagement({ workspaceId, role, onWorkspaceChanged
       setStatus(t('members.policyUpdated'));
     } catch (requestError: any) {
       setError(requestError.response?.data?.message || t('members.policyError'));
+    } finally {
+      setBusyId('');
+    }
+  };
+
+  const revokeInvitation = async (invitation: WorkspaceInvitation) => {
+    if (!window.confirm(t('workspace.invitations.revokeConfirm', { email: invitation.email }))) return;
+    setBusyId(invitation.id);
+    setError('');
+    setStatus('');
+    try {
+      await workspaceAPI.revokeInvitation(workspaceId, invitation.id);
+      await load();
+      setStatus(t('workspace.invitations.revoked'));
+    } catch (requestError: any) {
+      setError(requestError.response?.data?.message || t('workspace.invitations.revokeError'));
     } finally {
       setBusyId('');
     }
@@ -159,6 +182,37 @@ export default function MemberManagement({ workspaceId, role, onWorkspaceChanged
           })}
         </ul>
       </section>
+      {canManageMembers && (
+        <section className="rounded-lg border border-border bg-card p-5">
+          <div className="flex items-center gap-3">
+            <Mail size={20} className="text-primary" />
+            <h2 className="text-lg font-semibold text-card-foreground">{t('workspace.invitations.pending')}</h2>
+          </div>
+          {invitations.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">{t('workspace.invitations.empty')}</p>
+          ) : (
+            <ul className="mt-4 divide-y divide-border">
+              {invitations.map((invitation) => (
+                <li key={invitation.id} className="flex items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">{invitation.email}</p>
+                    <p className="text-xs text-muted-foreground">{invitation.role === Role.EDITOR ? t('roles.editor') : t('roles.viewer')}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void revokeInvitation(invitation)}
+                    disabled={busyId === invitation.id}
+                    aria-label={t('workspace.invitations.revoke', { email: invitation.email })}
+                    className="flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                  >
+                    {busyId === invitation.id ? <Loader2 size={17} className="animate-spin" /> : <XCircle size={17} />}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {status && <p role="status" className="text-sm text-primary">{status}</p>}
     </div>

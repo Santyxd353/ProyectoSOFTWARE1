@@ -19,6 +19,7 @@ export interface Workspace {
   allowViewerComments: boolean;
   collaborators: WorkspaceCollaborator[];
   diagrams?: Diagram[];
+  archivedDiagrams?: Diagram[];
   _count: {
     collaborators: number;
     diagrams: number;
@@ -51,3 +52,24 @@ export interface WorkspaceMembersResponse {
   allowViewerComments: boolean;
   members: WorkspaceMember[];
 }
+
+export type WorkspaceSort = 'updated_desc' | 'updated_asc' | 'name_asc' | 'name_desc';
+
+export interface WorkspaceQuery {
+  search?: string;
+  sort?: WorkspaceSort;
+}
+
+export interface WorkspaceInvitation {
+  id: string;
+  workspaceId: string;
+  email: string;
+  role: Role.EDITOR | Role.VIEWER;
+  status: 'PENDING' | 'ACCEPTED' | 'REVOKED';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type InviteResult =
+  | { kind: 'member'; member: WorkspaceCollaborator }
+  | { kind: 'invitation'; invitation: WorkspaceInvitation };

@@ -1,10 +1,19 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ActivityType } from '@prisma/client';
+import { ActivityType, AuditAction } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class DiagramService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   async createDiagram(workspaceId: string, userId: string, name: string) {
     // Verify user has access to workspace
@@ -178,33 +187,57 @@ export class DiagramService {
     });
   }
 
-  async deleteDiagram(diagramId: string, userId: string) {
-    // Verify access first
+  async archiveDiagram(diagramId: string, userId: string) {
     const diagram = await this.getDiagramById(diagramId, userId);
-
-    // Verify user is the owner or has editor role
-    const workspace = await this.prisma.workspace.findUnique({
-      where: { id: diagram.workspaceId },
-      include: {
-        collaborators: {
-          where: { userId },
-        },
-      },
-    });
-
-    const isOwner = workspace.ownerId === userId;
-    const isEditor = workspace.collaborators.some(c => c.userId === userId && c.role === 'EDITOR');
-
-    if (!isOwner && !isEditor) {
-      throw new ForbiddenException('Only workspace owner or editors can delete diagrams');
+    if (diagram.workspace.ownerId !== userId) {
+      throw new ForbiddenException('Only workspace owner can archive diagrams');
     }
 
-    // Delete diagram (cascade will delete related data)
-    await this.prisma.diagram.delete({
-      where: { id: diagramId },
-    });
+    if (diagram.archivedAt) {
+      throw new BadRequestException('Diagram is already archived');
+    }
 
-    return { message: 'Diagram deleted successfully' };
+    const archivedAt = new Date();
+    const archived = await this.prisma.diagram.update({
+      where: { id: diagramId },
+      data: { archivedAt },
+    });
+    await this.audit.record({
+      workspaceId: diagram.workspaceId,
+      actorId: userId,
+      action: AuditAction.DIAGRAM_ARCHIVED,
+      entityType: 'Diagram',
+      entityId: diagramId,
+    });
+    return archived;
+  }
+
+  async restoreDiagram(diagramId: string, userId: string) {
+    const diagram = await this.getDiagramById(diagramId, userId);
+    if (diagram.workspace.ownerId !== userId) {
+      throw new ForbiddenException('Only workspace owner can restore diagrams');
+    }
+
+    if (!diagram.archivedAt) {
+      throw new BadRequestException('Diagram is not archived');
+    }
+
+    const restored = await this.prisma.diagram.update({
+      where: { id: diagramId },
+      data: { archivedAt: null },
+    });
+    await this.audit.record({
+      workspaceId: diagram.workspaceId,
+      actorId: userId,
+      action: AuditAction.DIAGRAM_RESTORED,
+      entityType: 'Diagram',
+      entityId: diagramId,
+    });
+    return restored;
+  }
+
+  async deleteDiagram(diagramId: string, userId: string) {
+    return this.archiveDiagram(diagramId, userId);
   }
 
   private async verifyWorkspaceAccess(workspaceId: string, userId: string) {

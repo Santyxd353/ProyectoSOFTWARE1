@@ -43,9 +43,33 @@ export class WorkspaceService {
     });
   }
 
-  async getUserWorkspaces(userId: string) {
+  async getUserWorkspaces(
+    userId: string,
+    options: {
+      search?: string;
+      sort?: 'updated_desc' | 'updated_asc' | 'name_asc' | 'name_desc';
+    } = {},
+  ) {
+    const search = options.search?.trim();
+    const orderBy = options.sort === 'updated_asc'
+      ? { updatedAt: 'asc' as const }
+      : options.sort === 'name_asc'
+        ? { name: 'asc' as const }
+        : options.sort === 'name_desc'
+          ? { name: 'desc' as const }
+          : { updatedAt: 'desc' as const };
+    const searchFilter = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' as const } },
+            { description: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }
+      : {};
+
     const ownedWorkspaces = await this.prisma.workspace.findMany({
-      where: { ownerId: userId },
+      where: { ownerId: userId, ...searchFilter },
+      orderBy,
       include: {
         owner: {
           select: {
@@ -69,7 +93,9 @@ export class WorkspaceService {
         collaborators: {
           some: { userId },
         },
+        ...searchFilter,
       },
+      orderBy,
       include: {
         owner: {
           select: {
@@ -96,6 +122,87 @@ export class WorkspaceService {
       owned: ownedWorkspaces,
       collaborated: collaboratedWorkspaces,
     };
+  }
+
+  async updateWorkspace(
+    workspaceId: string,
+    actorId: string,
+    input: { name?: string; description?: string },
+  ) {
+    await this.authorization.require(workspaceId, actorId, 'members:manage');
+    const data: { name?: string; description?: string | null } = {};
+    if (input.name !== undefined) {
+      const name = input.name.trim();
+      if (!name) throw new BadRequestException('Workspace name cannot be empty');
+      data.name = name;
+    }
+    if (input.description !== undefined) {
+      data.description = input.description.trim() || null;
+    }
+    if (Object.keys(data).length === 0) {
+      throw new BadRequestException('No workspace changes were provided');
+    }
+
+    const workspace = await this.prisma.workspace.update({
+      where: { id: workspaceId },
+      data,
+    });
+    await this.audit.record({
+      workspaceId,
+      actorId,
+      action: AuditAction.WORKSPACE_UPDATED,
+      entityType: 'Workspace',
+      entityId: workspaceId,
+      metadata: { fields: Object.keys(data) },
+    });
+    return workspace;
+  }
+
+  async transferOwnership(
+    workspaceId: string,
+    actorId: string,
+    memberId: string,
+    confirmationName: string,
+  ) {
+    await this.authorization.require(workspaceId, actorId, 'members:manage');
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { id: true, name: true, ownerId: true },
+    });
+    if (!workspace) throw new NotFoundException('Workspace not found');
+    if (workspace.ownerId !== actorId) {
+      throw new ForbiddenException('Only workspace owner can transfer ownership');
+    }
+    if (confirmationName.trim() !== workspace.name) {
+      throw new BadRequestException('Workspace name confirmation does not match');
+    }
+
+    const member = await this.prisma.workspaceCollaborator.findFirst({
+      where: { id: memberId, workspaceId },
+    });
+    if (!member) throw new NotFoundException('Workspace member not found');
+
+    return this.prisma.$transaction(async (db) => {
+      const updated = await db.workspace.update({
+        where: { id: workspaceId },
+        data: { ownerId: member.userId },
+      });
+      await db.workspaceCollaborator.delete({ where: { id: member.id } });
+      await db.workspaceCollaborator.upsert({
+        where: { userId_workspaceId: { userId: actorId, workspaceId } },
+        create: { userId: actorId, workspaceId, role: Role.EDITOR },
+        update: { role: Role.EDITOR },
+      });
+      await this.audit.record({
+        workspaceId,
+        actorId,
+        action: AuditAction.WORKSPACE_OWNERSHIP_TRANSFERRED,
+        entityType: 'Workspace',
+        entityId: workspaceId,
+        metadata: { previousOwnerId: actorId, newOwnerId: member.userId },
+      }, db);
+      return updated;
+    });
   }
 
   async getWorkspaceById(workspaceId: string, userId: string) {
@@ -129,6 +236,7 @@ export class WorkspaceService {
             name: true,
             version: true,
             data: true,
+            archivedAt: true,
             createdAt: true,
             updatedAt: true,
           },
@@ -141,7 +249,13 @@ export class WorkspaceService {
     }
 
     const access = await this.authorization.getAccess(workspaceId, userId);
-    return { ...workspace, currentUserRole: access.role };
+    const { diagrams, ...workspaceData } = workspace;
+    return {
+      ...workspaceData,
+      diagrams: diagrams.filter((diagram) => !diagram.archivedAt),
+      archivedDiagrams: diagrams.filter((diagram) => Boolean(diagram.archivedAt)),
+      currentUserRole: access.role,
+    };
   }
 
   async addCollaborator(workspaceId: string, ownerId: string, email: string, role: Role = Role.VIEWER) {

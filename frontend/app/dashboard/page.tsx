@@ -8,6 +8,7 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import ThemeToggle from '@/components/theme/ThemeToggle';
 import LanguageToggle from '@/components/i18n/LanguageToggle';
 import { useI18n } from '@/components/i18n/I18nProvider';
+import { WorkspaceSort } from '@/types/workspace';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -16,6 +17,8 @@ export default function DashboardPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', description: '' });
   const [isCreating, setIsCreating] = useState(false);
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<WorkspaceSort>('updated_desc');
   const { t } = useI18n();
 
   useEffect(() => {
@@ -23,8 +26,11 @@ export default function DashboardPage() {
       router.push('/login');
       return;
     }
-    fetchWorkspaces();
-  }, [user, router, fetchWorkspaces]);
+    const timer = window.setTimeout(() => {
+      void fetchWorkspaces({ search, sort });
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [user, router, fetchWorkspaces, search, sort]);
 
   const handleLogout = () => {
     logout();
@@ -100,6 +106,33 @@ export default function DashboardPage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
+          <div className="mb-6 grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-[1fr_auto]">
+            <div>
+              <label htmlFor="project-search" className="sr-only">{t('dashboard.search')}</label>
+              <input
+                id="project-search"
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t('dashboard.searchPlaceholder')}
+                className="w-full min-h-11 rounded-md border border-input bg-background px-3 text-foreground"
+              />
+            </div>
+            <div>
+              <label htmlFor="project-sort" className="sr-only">{t('dashboard.sort.label')}</label>
+              <select
+                id="project-sort"
+                value={sort}
+                onChange={(event) => setSort(event.target.value as WorkspaceSort)}
+                className="min-h-11 w-full rounded-md border border-input bg-background px-3 text-foreground sm:w-auto"
+              >
+                <option value="updated_desc">{t('dashboard.sort.updatedDesc')}</option>
+                <option value="updated_asc">{t('dashboard.sort.updatedAsc')}</option>
+                <option value="name_asc">{t('dashboard.sort.nameAsc')}</option>
+                <option value="name_desc">{t('dashboard.sort.nameDesc')}</option>
+              </select>
+            </div>
+          </div>
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>

@@ -26,7 +26,7 @@ export interface RecordAuditEventInput {
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async record(input: RecordAuditEventInput) {
+  async record(input: RecordAuditEventInput, transactionClient?: Prisma.TransactionClient) {
     const metadata = this.sanitizeObject(input.metadata ?? {});
     const encoded = JSON.stringify(metadata);
 
@@ -34,7 +34,8 @@ export class AuditService {
       throw new BadRequestException('Audit metadata exceeds 8192 bytes');
     }
 
-    return this.prisma.auditEvent.create({
+    const database = transactionClient ?? this.prisma;
+    return database.auditEvent.create({
       data: {
         workspaceId: input.workspaceId,
         actorId: input.actorId,

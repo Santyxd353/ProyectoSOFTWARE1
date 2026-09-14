@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Role, Workspace, CreateWorkspaceData } from '@/types/workspace';
+import { Role, Workspace, CreateWorkspaceData, WorkspaceQuery } from '@/types/workspace';
 import { workspaceAPI } from '@/lib/api';
 
 interface WorkspaceState {
@@ -12,7 +12,7 @@ interface WorkspaceState {
   error: string | null;
 
   // Actions
-  fetchWorkspaces: () => Promise<void>;
+  fetchWorkspaces: (query?: WorkspaceQuery) => Promise<void>;
   fetchWorkspaceById: (id: string) => Promise<void>;
   createWorkspace: (data: CreateWorkspaceData) => Promise<Workspace>;
   addCollaborator: (workspaceId: string, email: string, role?: string) => Promise<void>;
@@ -31,10 +31,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   isLoading: false,
   error: null,
 
-  fetchWorkspaces: async () => {
+  fetchWorkspaces: async (query = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const workspaces = await workspaceAPI.getWorkspaces();
+      const workspaces = await workspaceAPI.getWorkspaces(query);
       set({ workspaces, isLoading: false });
     } catch (error: any) {
       set({

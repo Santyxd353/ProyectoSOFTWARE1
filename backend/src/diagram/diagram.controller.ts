@@ -75,4 +75,14 @@ export class DiagramController {
   async deleteDiagram(@Param('id') id: string, @Request() req) {
     return this.diagramService.deleteDiagram(id, req.user.userId);
   }
+
+  @Post(':id/archive')
+  async archiveDiagram(@Param('id') id: string, @Request() req) {
+    return this.diagramService.archiveDiagram(id, req.user.userId);
+  }
+
+  @Post(':id/restore')
+  async restoreDiagram(@Param('id') id: string, @Request() req) {
+    return this.diagramService.restoreDiagram(id, req.user.userId);
+  }
 }

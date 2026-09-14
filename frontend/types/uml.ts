@@ -75,5 +75,6 @@ export interface Diagram {
   version: number;
   createdAt: string;
   updatedAt: string;
+  archivedAt?: string | null;
   workspaceId: string;
 }

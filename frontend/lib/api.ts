@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { AuthResponse, LoginData, RegisterData } from '@/types/auth';
-import { Role, Workspace, CreateWorkspaceData, WorkspaceMembersResponse } from '@/types/workspace';
+import { Role, Workspace, CreateWorkspaceData, InviteResult, WorkspaceInvitation, WorkspaceMembersResponse, WorkspaceQuery } from '@/types/workspace';
 import { Diagram } from '@/types/uml';
 import {
   ReviewComment,
@@ -65,8 +65,8 @@ export const authAPI = {
 
 // Workspace API
 export const workspaceAPI = {
-  getWorkspaces: async () => {
-    const response = await api.get('/workspaces');
+  getWorkspaces: async (query: WorkspaceQuery = {}) => {
+    const response = await api.get('/workspaces', { params: query });
     return response.data;
   },
 
@@ -80,8 +80,8 @@ export const workspaceAPI = {
     return response.data;
   },
 
-  addCollaborator: async (workspaceId: string, email: string, role?: string) => {
-    const response = await api.post(`/workspaces/${workspaceId}/collaborators`, {
+  addCollaborator: async (workspaceId: string, email: string, role?: string): Promise<InviteResult> => {
+    const response = await api.post(`/workspaces/${workspaceId}/invitations`, {
       email,
       role,
     });
@@ -122,6 +122,36 @@ export const workspaceAPI = {
     );
     return response.data;
   },
+
+  updateWorkspace: async (
+    workspaceId: string,
+    data: { name?: string; description?: string },
+  ): Promise<Workspace> => {
+    const response = await api.patch(`/workspaces/${workspaceId}`, data);
+    return response.data;
+  },
+
+  getInvitations: async (workspaceId: string): Promise<WorkspaceInvitation[]> => {
+    const response = await api.get(`/workspaces/${workspaceId}/invitations`);
+    return response.data;
+  },
+
+  revokeInvitation: async (workspaceId: string, invitationId: string) => {
+    const response = await api.delete(`/workspaces/${workspaceId}/invitations/${invitationId}`);
+    return response.data;
+  },
+
+  transferOwnership: async (
+    workspaceId: string,
+    memberId: string,
+    confirmationName: string,
+  ): Promise<Workspace> => {
+    const response = await api.post(`/workspaces/${workspaceId}/transfer-ownership`, {
+      memberId,
+      confirmationName,
+    });
+    return response.data;
+  },
 };
 
 // Diagram API
@@ -150,6 +180,16 @@ export const diagramAPI = {
 
   deleteDiagram: async (id: string): Promise<{ message: string }> => {
     const response = await api.delete(`/diagrams/${id}`);
+    return response.data;
+  },
+
+  archiveDiagram: async (id: string): Promise<Diagram> => {
+    const response = await api.post(`/diagrams/${id}/archive`);
+    return response.data;
+  },
+
+  restoreDiagram: async (id: string): Promise<Diagram> => {
+    const response = await api.post(`/diagrams/${id}/restore`);
     return response.data;
   },
 };
