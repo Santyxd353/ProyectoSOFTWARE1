@@ -17,7 +17,7 @@ export class DiagramService {
 
   async createDiagram(workspaceId: string, userId: string, name: string) {
     // Verify user has access to workspace
-    await this.verifyWorkspaceAccess(workspaceId, userId);
+    await this.verifyWorkspaceAccess(workspaceId, userId, true);
 
     return this.prisma.diagram.create({
       data: {
@@ -107,7 +107,14 @@ export class DiagramService {
       }
 
       // Verify access
-      await this.getDiagramById(diagramId, userId);
+      const diagram = await this.getDiagramById(diagramId, userId);
+      if (diagram.archivedAt) {
+        throw new BadRequestException('Archived diagrams cannot be edited');
+      }
+      const collaborator = diagram.workspace.collaborators.find((item) => item.userId === userId);
+      if (diagram.workspace.ownerId !== userId && collaborator?.role !== 'EDITOR') {
+        throw new ForbiddenException('Viewer role cannot edit diagrams');
+      }
 
       const updatedDiagram = await this.prisma.diagram.update({
         where: { id: diagramId },
@@ -138,7 +145,14 @@ export class DiagramService {
 
   async addUMLClass(diagramId: string, userId: string, classData: any) {
     // Verify access
-    await this.getDiagramById(diagramId, userId);
+    const diagram = await this.getDiagramById(diagramId, userId);
+    if (diagram.archivedAt) {
+      throw new BadRequestException('Archived diagrams cannot be edited');
+    }
+    const collaborator = diagram.workspace.collaborators.find((item) => item.userId === userId);
+    if (diagram.workspace.ownerId !== userId && collaborator?.role !== 'EDITOR') {
+      throw new ForbiddenException('Viewer role cannot edit diagrams');
+    }
 
     const umlClass = await this.prisma.uMLClass.create({
       data: {
@@ -240,7 +254,7 @@ export class DiagramService {
     return this.archiveDiagram(diagramId, userId);
   }
 
-  private async verifyWorkspaceAccess(workspaceId: string, userId: string) {
+  private async verifyWorkspaceAccess(workspaceId: string, userId: string, write = false) {
     const workspace = await this.prisma.workspace.findUnique({
       where: { id: workspaceId },
       include: {
@@ -252,11 +266,15 @@ export class DiagramService {
       throw new NotFoundException('Workspace not found');
     }
 
-    const hasAccess = workspace.ownerId === userId ||
-      workspace.collaborators.some(c => c.userId === userId);
+    const collaborator = workspace.collaborators.find(c => c.userId === userId);
+    const hasAccess = workspace.ownerId === userId || Boolean(collaborator);
 
     if (!hasAccess) {
       throw new ForbiddenException('Access denied to this workspace');
+    }
+
+    if (write && workspace.ownerId !== userId && collaborator?.role !== 'EDITOR') {
+      throw new ForbiddenException('Viewer role cannot edit diagrams');
     }
 
     return workspace;

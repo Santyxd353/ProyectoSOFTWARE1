@@ -121,6 +121,17 @@ test('catalogs include the documented project administration flows', () => {
   }
 });
 
+test('catalogs include XMI interoperability controls', () => {
+  for (const key of [
+    'interchange.import', 'interchange.importing', 'interchange.importSuccess',
+    'interchange.importError', 'interchange.export', 'interchange.exporting',
+    'interchange.exportError',
+  ]) {
+    assert.equal(typeof enModule.en?.[key], 'string', `missing English key: ${key}`);
+    assert.equal(typeof esModule.es?.[key], 'string', `missing Spanish key: ${key}`);
+  }
+});
+
 test('catalogs include UML editor contracts', () => {
   const requiredKeys = [
     'diagramEditor.header.back', 'diagramEditor.header.version',

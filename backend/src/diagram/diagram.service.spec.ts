@@ -24,6 +24,7 @@ describe('DiagramService lifecycle', () => {
         ),
         delete: jest.fn(),
       },
+      diagramActivity: { create: jest.fn() },
     };
     const audit = { record: jest.fn().mockResolvedValue({ id: 'audit-1' }) };
     const service = new (DiagramService as any)(prisma, audit) as DiagramService & {
@@ -98,6 +99,31 @@ describe('DiagramService lifecycle', () => {
     const { service, prisma } = createService();
 
     await expect(service.restoreDiagram('diagram-1', 'owner-1'))
+      .rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.diagram.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects diagram edits from viewers', async () => {
+    const { service, prisma } = createService({
+      ...diagram,
+      workspace: {
+        ownerId: 'owner-1',
+        collaborators: [{ userId: 'viewer-1', role: 'VIEWER' }],
+      },
+    } as any);
+
+    await expect(service.updateDiagram('diagram-1', 'viewer-1', { classes: [], relations: [] }))
+      .rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.diagram.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects edits to archived diagrams', async () => {
+    const { service, prisma } = createService({
+      ...diagram,
+      archivedAt: new Date('2026-09-13T12:00:00.000Z'),
+    });
+
+    await expect(service.updateDiagram('diagram-1', 'owner-1', { classes: [], relations: [] }))
       .rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.diagram.update).not.toHaveBeenCalled();
   });

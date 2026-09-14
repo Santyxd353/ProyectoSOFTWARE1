@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Users, Calendar, FileText, ArrowLeft, Settings, Share, X, Archive, RotateCcw, Code2 } from 'lucide-react';
+import { Plus, Users, Calendar, FileText, ArrowLeft, Settings, Share, X, Archive, RotateCcw, Code2, Upload } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { diagramAPI } from '@/lib/api';
@@ -43,6 +43,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
   const [diagramToArchive, setDiagramToArchive] = useState<Diagram | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
   const [restoringDiagramId, setRestoringDiagramId] = useState<string | null>(null);
+  const [isImportingXmi, setIsImportingXmi] = useState(false);
   const [activeTab, setActiveTab] = useState<'diagrams' | 'code' | 'members' | 'settings'>('diagrams');
   const { t, formatDate } = useI18n();
 
@@ -129,6 +130,25 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
       alert(error.response?.data?.message || t('workspace.diagram.archiveError'));
     } finally {
       setIsArchiving(false);
+    }
+  };
+
+  const handleImportXmi = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      setIsImportingXmi(true);
+      const xmi = await file.text();
+      const name = file.name.replace(/\.xmi$/i, '').trim() || 'Imported diagram';
+      const imported = await diagramAPI.importXmi(params.workspaceId, name, xmi);
+      setDiagrams((current) => [imported, ...current]);
+      alert(t('interchange.importSuccess'));
+    } catch (error: any) {
+      console.error('Error importing XMI:', error);
+      alert(error.response?.data?.message || t('interchange.importError'));
+    } finally {
+      setIsImportingXmi(false);
     }
   };
 
@@ -303,12 +323,13 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
           </div>
 
           {/* Create New Diagram */}
+          {currentRole !== Role.VIEWER && (
           <div className="bg-card border border-border shadow-sm rounded-lg mb-8">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
                 {t('workspace.diagram.new')}
               </h3>
-              <div className="flex space-x-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <input
                   type="text"
                   value={newDiagramName}
@@ -329,9 +350,21 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                   )}
                   <span>{isCreatingDiagram ? t('workspace.diagram.creating') : t('workspace.diagram.create')}</span>
                 </button>
+                <label className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-border px-4 text-sm font-medium text-foreground hover:bg-muted">
+                    <Upload size={16} />
+                    {isImportingXmi ? t('interchange.importing') : t('interchange.import')}
+                    <input
+                      type="file"
+                      accept=".xmi,application/xml,text/xml"
+                      disabled={isImportingXmi}
+                      onChange={(event) => void handleImportXmi(event)}
+                      className="sr-only"
+                    />
+                </label>
               </div>
             </div>
           </div>
+          )}
 
           {/* Diagrams List */}
           <div className="bg-card border border-border shadow-sm rounded-lg">

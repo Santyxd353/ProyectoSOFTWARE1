@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Res, UseGuards, Request } from '@nestjs/common';
 import { DiagramService } from './diagram.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { IsNotEmpty, IsString, IsObject, IsOptional } from 'class-validator';
+import { Response } from 'express';
+import { DiagramInterchangeService } from '../diagram-interchange/diagram-interchange.service';
 
 class CreateDiagramDto {
   @IsString()
@@ -37,7 +39,10 @@ class AddClassDto {
 @Controller('diagrams')
 @UseGuards(JwtAuthGuard)
 export class DiagramController {
-  constructor(private diagramService: DiagramService) {}
+  constructor(
+    private diagramService: DiagramService,
+    private readonly interchange: DiagramInterchangeService,
+  ) {}
 
   @Post()
   async createDiagram(@Body() createDiagramDto: CreateDiagramDto, @Request() req) {
@@ -51,6 +56,30 @@ export class DiagramController {
   @Get(':id')
   async getDiagramById(@Param('id') id: string, @Request() req) {
     return this.diagramService.getDiagramById(id, req.user.userId);
+  }
+
+  @Get(':id/export/xmi')
+  async exportXmi(
+    @Param('id') id: string,
+    @Request() req,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const diagram = await this.diagramService.getDiagramById(id, req.user.userId);
+    const xmi = await this.interchange.exportXmi(id, req.user.userId);
+    const filename = `${diagram.name.replace(/[^A-Za-z0-9._-]/g, '_') || 'diagram'}.xmi`;
+    response.type('application/xml; charset=utf-8');
+    response.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return xmi;
+  }
+
+  @Post('import/xmi')
+  importXmi(@Body() body: ImportXmiDto, @Request() req) {
+    return this.interchange.importXmi(
+      body.workspaceId,
+      req.user.userId,
+      body.name,
+      body.xmi,
+    );
   }
 
   @Put(':id')
@@ -85,4 +114,18 @@ export class DiagramController {
   async restoreDiagram(@Param('id') id: string, @Request() req) {
     return this.diagramService.restoreDiagram(id, req.user.userId);
   }
+}
+
+class ImportXmiDto {
+  @IsString()
+  @IsNotEmpty()
+  workspaceId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsNotEmpty()
+  xmi: string;
 }

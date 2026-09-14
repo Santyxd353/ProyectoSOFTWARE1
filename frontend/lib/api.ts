@@ -192,6 +192,16 @@ export const diagramAPI = {
     const response = await api.post(`/diagrams/${id}/restore`);
     return response.data;
   },
+
+  exportXmi: async (id: string): Promise<Blob> => {
+    const response = await api.get(`/diagrams/${id}/export/xmi`, { responseType: 'blob' });
+    return response.data;
+  },
+
+  importXmi: async (workspaceId: string, name: string, xmi: string): Promise<Diagram> => {
+    const response = await api.post('/diagrams/import/xmi', { workspaceId, name, xmi });
+    return response.data;
+  },
 };
 
 // AI Chat API

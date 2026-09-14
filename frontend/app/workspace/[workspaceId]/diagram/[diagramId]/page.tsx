@@ -12,6 +12,7 @@ import { Diagram } from '@/types/uml';
 import ThemeToggle from '@/components/theme/ThemeToggle';
 import LanguageToggle from '@/components/i18n/LanguageToggle';
 import { useI18n } from '@/components/i18n/I18nProvider';
+import { Download, Loader2 } from 'lucide-react';
 
 interface DiagramPageProps {
   params: {
@@ -28,6 +29,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCodeGenOpen, setIsCodeGenOpen] = useState(false);
+  const [isExportingXmi, setIsExportingXmi] = useState(false);
   const { t, formatDate } = useI18n();
 
   // Fetch diagram data
@@ -111,6 +113,24 @@ export default function DiagramPage({ params }: DiagramPageProps) {
     } : null);
   };
 
+  const handleExportXmi = async () => {
+    if (!diagram) return;
+    try {
+      setIsExportingXmi(true);
+      const blob = await diagramAPI.exportXmi(diagram.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${diagram.name.replace(/[^A-Za-z0-9._-]/g, '_') || 'diagram'}.xmi`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (requestError: any) {
+      setError(requestError.response?.data?.message || t('interchange.exportError'));
+    } finally {
+      setIsExportingXmi(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -174,6 +194,15 @@ export default function DiagramPage({ params }: DiagramPageProps) {
           <div className="flex items-center space-x-3">
             <LanguageToggle />
             <ThemeToggle />
+            <button
+              type="button"
+              onClick={() => void handleExportXmi()}
+              disabled={isExportingXmi}
+              className="flex min-h-11 items-center gap-2 rounded-md border border-border px-3 text-sm text-foreground hover:bg-muted disabled:opacity-50"
+            >
+              {isExportingXmi ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+              {isExportingXmi ? t('interchange.exporting') : t('interchange.export')}
+            </button>
             <button
               onClick={() => setIsChatOpen(!isChatOpen)}
               className={`px-4 py-2 rounded-md transition-colors ${
