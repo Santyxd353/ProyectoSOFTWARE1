@@ -154,6 +154,7 @@ test('catalogs include AI and code-generation contracts', () => {
   const requiredKeys = [
     'ai.title', 'ai.welcome', 'ai.placeholder', 'ai.upload', 'ai.send',
     'ai.thinking', 'ai.imageInvalid', 'ai.diagramApplied',
+    'ai.previewReady', 'ai.applyProposal', 'ai.discardProposal',
     'ai.template.pharmacy.name', 'ai.template.pharmacy.description', 'ai.template.pharmacy.prompt',
     'ai.template.hardware.name', 'ai.template.hardware.description', 'ai.template.hardware.prompt',
     'ai.template.ecommerce.name', 'ai.template.ecommerce.description', 'ai.template.ecommerce.prompt',

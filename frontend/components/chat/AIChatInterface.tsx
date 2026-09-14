@@ -19,7 +19,7 @@ interface ChatMessage {
 
 interface AIChatInterfaceProps {
   diagramId: string;
-  onUMLGenerated?: (umlModel: any) => void;
+  onUMLGenerated?: (umlModel: any) => void | Promise<void>;
   onClose?: () => void;
   isOpen: boolean;
 }
@@ -71,6 +71,8 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
   const [showTemplates, setShowTemplates] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [pendingModel, setPendingModel] = useState<any | null>(null);
+  const [isApplying, setIsApplying] = useState(false);
   const { locale, t } = useI18n();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -200,10 +202,8 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
 
       setMessages(prev => [...prev, aiMessage]);
 
-      // If the response includes a UML model, apply it automatically
       if (chatResponse.model && onUMLGenerated) {
-        console.log('✅ Diagrama UML recibido, aplicando automáticamente:', chatResponse.model.name);
-        onUMLGenerated(chatResponse.model);
+        setPendingModel(chatResponse.model);
       }
 
     } catch (error) {
@@ -218,6 +218,24 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const applyPendingModel = async () => {
+    if (!pendingModel || !onUMLGenerated) return;
+    setIsApplying(true);
+    try {
+      await onUMLGenerated(pendingModel);
+      setPendingModel(null);
+      setMessages((current) => [...current, {
+        id: `${Date.now()}-applied`,
+        type: 'ai',
+        content: '',
+        translationKey: 'ai.diagramApplied',
+        timestamp: new Date(),
+      }]);
+    } finally {
+      setIsApplying(false);
     }
   };
 
@@ -322,6 +340,34 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
 
       {/* Input */}
       <div className="p-4 border-t border-gray-200 flex-shrink-0">
+        {pendingModel && (
+          <div className="mb-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+            <p className="text-sm text-foreground">
+              {t('ai.previewReady', {
+                classes: pendingModel.classes?.length || 0,
+                relations: pendingModel.relations?.length || 0,
+              })}
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => void applyPendingModel()}
+                disabled={isApplying}
+                className="rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-50"
+              >
+                {isApplying ? t('ai.thinking') : t('ai.applyProposal')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingModel(null)}
+                disabled={isApplying}
+                className="rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-muted"
+              >
+                {t('ai.discardProposal')}
+              </button>
+            </div>
+          </div>
+        )}
         {/* Image Preview */}
         {imagePreview && (
           <div className="mb-2 relative inline-block">

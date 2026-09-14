@@ -30,6 +30,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCodeGenOpen, setIsCodeGenOpen] = useState(false);
   const [isExportingXmi, setIsExportingXmi] = useState(false);
+  const [editorRevision, setEditorRevision] = useState(0);
   const { t, formatDate } = useI18n();
 
   // Fetch diagram data
@@ -86,7 +87,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
   };
 
   // Handle UML generation from AI
-  const handleUMLGenerated = (umlModel: any) => {
+  const handleUMLGenerated = async (umlModel: any) => {
     if (!diagram) return;
 
     console.log('🎯 Aplicando modelo UML generado:', umlModel);
@@ -107,10 +108,13 @@ export default function DiagramPage({ params }: DiagramPageProps) {
       relations: updatedData.relations.length
     });
 
-    setDiagram(prev => prev ? {
-      ...prev,
+    const saved = await diagramAPI.updateDiagram(diagram.id, updatedData);
+    setDiagram((previous) => previous ? {
+      ...previous,
+      ...saved,
       data: updatedData,
     } : null);
+    setEditorRevision((current) => current + 1);
   };
 
   const handleExportXmi = async () => {
@@ -239,6 +243,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
       <div className="flex-1 relative">
         <ReactFlowProvider>
           <UMLEditor
+            key={`${diagram.id}-${editorRevision}`}
             diagram={diagram}
             workspaceId={params.workspaceId}
             userId={user.id}
