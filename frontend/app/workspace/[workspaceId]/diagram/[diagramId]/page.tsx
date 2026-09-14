@@ -29,7 +29,8 @@ export default function DiagramPage({ params }: DiagramPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCodeGenOpen, setIsCodeGenOpen] = useState(false);
-  const [isExportingXmi, setIsExportingXmi] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'xmi' | 'json' | 'zip'>('xmi');
   const [editorRevision, setEditorRevision] = useState(0);
   const { t, formatDate } = useI18n();
 
@@ -117,21 +118,21 @@ export default function DiagramPage({ params }: DiagramPageProps) {
     setEditorRevision((current) => current + 1);
   };
 
-  const handleExportXmi = async () => {
+  const handleExport = async () => {
     if (!diagram) return;
     try {
-      setIsExportingXmi(true);
-      const blob = await diagramAPI.exportXmi(diagram.id);
+      setIsExporting(true);
+      const blob = await diagramAPI.exportDiagram(diagram.id, exportFormat);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${diagram.name.replace(/[^A-Za-z0-9._-]/g, '_') || 'diagram'}.xmi`;
+      link.download = `${diagram.name.replace(/[^A-Za-z0-9._-]/g, '_') || 'diagram'}.${exportFormat}`;
       link.click();
       window.URL.revokeObjectURL(url);
     } catch (requestError: any) {
       setError(requestError.response?.data?.message || t('interchange.exportError'));
     } finally {
-      setIsExportingXmi(false);
+      setIsExporting(false);
     }
   };
 
@@ -198,14 +199,24 @@ export default function DiagramPage({ params }: DiagramPageProps) {
           <div className="flex items-center space-x-3">
             <LanguageToggle />
             <ThemeToggle />
+            <select
+              value={exportFormat}
+              onChange={(event) => setExportFormat(event.target.value as 'xmi' | 'json' | 'zip')}
+              aria-label={t('interchange.format')}
+              className="min-h-11 rounded-md border border-border bg-card px-2 text-sm text-foreground"
+            >
+              <option value="xmi">XMI 2.5.1</option>
+              <option value="json">JSON</option>
+              <option value="zip">ZIP</option>
+            </select>
             <button
               type="button"
-              onClick={() => void handleExportXmi()}
-              disabled={isExportingXmi}
+              onClick={() => void handleExport()}
+              disabled={isExporting}
               className="flex min-h-11 items-center gap-2 rounded-md border border-border px-3 text-sm text-foreground hover:bg-muted disabled:opacity-50"
             >
-              {isExportingXmi ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-              {isExportingXmi ? t('interchange.exporting') : t('interchange.export')}
+              {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+              {isExporting ? t('interchange.exporting') : t('interchange.export')}
             </button>
             <button
               onClick={() => setIsChatOpen(!isChatOpen)}

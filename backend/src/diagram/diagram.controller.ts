@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, Res, UseGuards, Request } from '@nestjs/common';
 import { DiagramService } from './diagram.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { IsNotEmpty, IsString, IsObject, IsOptional, IsInt, Min, MaxLength } from 'class-validator';
+import { IsNotEmpty, IsString, IsObject, IsOptional, IsInt, Min, MaxLength, IsIn } from 'class-validator';
 import { Response } from 'express';
 import { DiagramInterchangeService } from '../diagram-interchange/diagram-interchange.service';
 import { CollaborationOperationService } from '../collaboration/collaboration-operation.service';
@@ -74,14 +74,48 @@ export class DiagramController {
     return xmi;
   }
 
-  @Post('import/xmi')
-  importXmi(@Body() body: ImportXmiDto, @Request() req) {
-    return this.interchange.importXmi(
-      body.workspaceId,
-      req.user.userId,
-      body.name,
-      body.xmi,
-    );
+  @Get(':id/export/json')
+  async exportJson(
+    @Param('id') id: string,
+    @Request() req,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const diagram = await this.diagramService.getDiagramById(id, req.user.userId);
+    const content = await this.interchange.exportJson(id, req.user.userId);
+    const filename = `${diagram.name.replace(/[^A-Za-z0-9._-]/g, '_') || 'diagram'}.json`;
+    response.type('application/json; charset=utf-8');
+    response.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return content;
+  }
+
+  @Get(':id/export/zip')
+  async exportZip(
+    @Param('id') id: string,
+    @Request() req,
+    @Res() response: Response,
+  ) {
+    const diagram = await this.diagramService.getDiagramById(id, req.user.userId);
+    const content = await this.interchange.exportZip(id, req.user.userId);
+    const filename = `${diagram.name.replace(/[^A-Za-z0-9._-]/g, '_') || 'diagram'}.zip`;
+    response.type('application/zip');
+    response.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    response.end(content);
+  }
+
+  @Post('import/preview')
+  previewImport(@Body() body: PreviewImportDto, @Request() req) {
+    return this.interchange.previewImport({
+      workspaceId: body.workspaceId,
+      userId: req.user.userId,
+      name: body.name,
+      format: body.format,
+      content: body.content,
+    });
+  }
+
+  @Post('import/confirm')
+  confirmImport(@Body() body: ConfirmImportDto, @Request() req) {
+    return this.interchange.confirmImport(body.token, req.user.userId);
   }
 
   @Put(':id')
@@ -166,7 +200,7 @@ export class DiagramController {
   }
 }
 
-class ImportXmiDto {
+class PreviewImportDto {
   @IsString()
   @IsNotEmpty()
   workspaceId: string;
@@ -177,7 +211,18 @@ class ImportXmiDto {
 
   @IsString()
   @IsNotEmpty()
-  xmi: string;
+  @IsIn(['xmi', 'json', 'zip'])
+  format: 'xmi' | 'json' | 'zip';
+
+  @IsString()
+  @IsNotEmpty()
+  content: string;
+}
+
+class ConfirmImportDto {
+  @IsString()
+  @IsNotEmpty()
+  token: string;
 }
 
 class ApplyDiagramOperationDto {

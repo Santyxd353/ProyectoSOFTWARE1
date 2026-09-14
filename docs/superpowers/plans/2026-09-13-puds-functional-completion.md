@@ -60,11 +60,11 @@
 - Consumes: XMI 2.1/2.5.1 XML, canonical JSON, or product ZIP containing `manifest.json` and `diagram.json`.
 - Produces: `previewImport(...)` with canonical diagram, accepted/warning/unsupported lists and opaque signed preview token; `confirmImport(token, userId)` persists exactly once.
 
-- [ ] **Step 1: Add failing tests** for JSON round-trip, ZIP round-trip, XMI preview without writes, confirmation persistence, token tampering/expiry, path traversal rejection, and unsupported-element warnings.
-- [ ] **Step 2: Run the focused Jest test** and observe the expected missing-contract failures.
-- [ ] **Step 3: Implement canonical exports and bounded parsers** with a 5 MB input limit, normalized paths, no entity expansion, no executable content, and a signed short-lived preview token.
-- [ ] **Step 4: Replace direct import with preview then confirmation** in API and bilingual UI.
-- [ ] **Step 5: Run backend/frontend tests and builds** and commit interoperable confirmed import/export.
+- [x] **Step 1: Add failing tests** for JSON round-trip, ZIP round-trip, XMI preview without writes, confirmation persistence, token tampering/expiry, path traversal rejection, and unsupported-element warnings.
+- [x] **Step 2: Run the focused Jest test** and observe the expected missing-contract failures.
+- [x] **Step 3: Implement canonical exports and bounded parsers** with a 5 MB input limit, normalized paths, no entity expansion, no executable content, and a signed short-lived preview token.
+- [x] **Step 4: Replace direct import with preview then confirmation** in API and bilingual UI.
+- [x] **Step 5: Run backend/frontend tests and builds** and commit interoperable confirmed import/export.
 
 ### Task 3: API test artifacts stored with backend revisions
 

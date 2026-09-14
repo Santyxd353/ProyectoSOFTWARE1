@@ -27,6 +27,26 @@ interface WorkspacePageProps {
   };
 }
 
+interface ImportPreview {
+  token: string;
+  name: string;
+  format: string;
+  accepted: { classes: number; relations: number };
+  warnings: string[];
+  unsupported: string[];
+}
+
+const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(
+      ...Array.from(bytes.subarray(offset, offset + 0x8000)),
+    );
+  }
+  return btoa(binary);
+};
+
 export default function WorkspacePage({ params }: WorkspacePageProps) {
   const router = useRouter();
   const { user } = useAuthStore();
@@ -43,7 +63,9 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
   const [diagramToArchive, setDiagramToArchive] = useState<Diagram | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
   const [restoringDiagramId, setRestoringDiagramId] = useState<string | null>(null);
-  const [isImportingXmi, setIsImportingXmi] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isConfirmingImport, setIsConfirmingImport] = useState(false);
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [activeTab, setActiveTab] = useState<'diagrams' | 'code' | 'members' | 'settings'>('diagrams');
   const { t, formatDate } = useI18n();
 
@@ -133,22 +155,48 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
     }
   };
 
-  const handleImportXmi = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
     try {
-      setIsImportingXmi(true);
-      const xmi = await file.text();
-      const name = file.name.replace(/\.xmi$/i, '').trim() || 'Imported diagram';
-      const imported = await diagramAPI.importXmi(params.workspaceId, name, xmi);
-      setDiagrams((current) => [imported, ...current]);
-      alert(t('interchange.importSuccess'));
+      setIsImporting(true);
+      const extension = file.name.split('.').pop()?.toLowerCase();
+      if (!extension || !['xmi', 'json', 'zip'].includes(extension)) {
+        throw new Error(t('interchange.unsupportedFormat'));
+      }
+      const format = extension as 'xmi' | 'json' | 'zip';
+      const content = format === 'zip'
+        ? arrayBufferToBase64(await file.arrayBuffer())
+        : await file.text();
+      const name = file.name.replace(/\.(xmi|json|zip)$/i, '').trim() || 'Imported diagram';
+      const preview = await diagramAPI.previewImport(
+        params.workspaceId,
+        name,
+        format,
+        content,
+      );
+      setImportPreview(preview);
     } catch (error: any) {
-      console.error('Error importing XMI:', error);
+      console.error('Error previewing import:', error);
       alert(error.response?.data?.message || t('interchange.importError'));
     } finally {
-      setIsImportingXmi(false);
+      setIsImporting(false);
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importPreview) return;
+    try {
+      setIsConfirmingImport(true);
+      const imported = await diagramAPI.confirmImport(importPreview.token);
+      setDiagrams((current) => [imported, ...current]);
+      setImportPreview(null);
+      alert(t('interchange.importSuccess'));
+    } catch (error: any) {
+      alert(error.response?.data?.message || t('interchange.importError'));
+    } finally {
+      setIsConfirmingImport(false);
     }
   };
 
@@ -352,12 +400,12 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                 </button>
                 <label className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-border px-4 text-sm font-medium text-foreground hover:bg-muted">
                     <Upload size={16} />
-                    {isImportingXmi ? t('interchange.importing') : t('interchange.import')}
+                    {isImporting ? t('interchange.importing') : t('interchange.import')}
                     <input
                       type="file"
-                      accept=".xmi,application/xml,text/xml"
-                      disabled={isImportingXmi}
-                      onChange={(event) => void handleImportXmi(event)}
+                      accept=".xmi,.json,.zip,application/xml,text/xml,application/json,application/zip"
+                      disabled={isImporting}
+                      onChange={(event) => void handleImport(event)}
                       className="sr-only"
                     />
                 </label>
@@ -596,6 +644,66 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {importPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+          <div className="w-full max-w-lg rounded-lg border border-border bg-card shadow-xl">
+            <div className="flex items-center justify-between border-b border-border p-4">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">{t('interchange.previewTitle')}</h3>
+                <p className="text-sm text-muted-foreground">{importPreview.name} · {importPreview.format.toUpperCase()}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setImportPreview(null)}
+                aria-label={t('common.close')}
+                className="rounded p-2 text-muted-foreground hover:bg-muted"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="space-y-4 p-5">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-md border border-border bg-muted/40 p-3">
+                  <div className="text-2xl font-semibold text-foreground">{importPreview.accepted.classes}</div>
+                  <div className="text-sm text-muted-foreground">{t('interchange.classes')}</div>
+                </div>
+                <div className="rounded-md border border-border bg-muted/40 p-3">
+                  <div className="text-2xl font-semibold text-foreground">{importPreview.accepted.relations}</div>
+                  <div className="text-sm text-muted-foreground">{t('interchange.relations')}</div>
+                </div>
+              </div>
+              {importPreview.warnings.length > 0 && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                  <p className="mb-1 font-medium">{t('interchange.warnings')}</p>
+                  <ul className="list-disc space-y-1 pl-5">
+                    {importPreview.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+                  </ul>
+                </div>
+              )}
+              <p className="text-sm text-muted-foreground">{t('interchange.confirmHelp')}</p>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setImportPreview(null)}
+                  disabled={isConfirmingImport}
+                  className="min-h-11 rounded-md border border-border px-4 text-sm font-medium text-foreground hover:bg-muted"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleConfirmImport()}
+                  disabled={isConfirmingImport}
+                  className="min-h-11 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {isConfirmingImport ? t('interchange.confirming') : t('interchange.confirm')}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

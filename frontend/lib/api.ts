@@ -193,13 +193,35 @@ export const diagramAPI = {
     return response.data;
   },
 
-  exportXmi: async (id: string): Promise<Blob> => {
-    const response = await api.get(`/diagrams/${id}/export/xmi`, { responseType: 'blob' });
+  exportDiagram: async (id: string, format: 'xmi' | 'json' | 'zip'): Promise<Blob> => {
+    const response = await api.get(`/diagrams/${id}/export/${format}`, { responseType: 'blob' });
     return response.data;
   },
 
-  importXmi: async (workspaceId: string, name: string, xmi: string): Promise<Diagram> => {
-    const response = await api.post('/diagrams/import/xmi', { workspaceId, name, xmi });
+  previewImport: async (
+    workspaceId: string,
+    name: string,
+    format: 'xmi' | 'json' | 'zip',
+    content: string,
+  ): Promise<{
+    token: string;
+    name: string;
+    format: string;
+    accepted: { classes: number; relations: number };
+    warnings: string[];
+    unsupported: string[];
+  }> => {
+    const response = await api.post('/diagrams/import/preview', {
+      workspaceId,
+      name,
+      format,
+      content,
+    });
+    return response.data;
+  },
+
+  confirmImport: async (token: string): Promise<Diagram> => {
+    const response = await api.post('/diagrams/import/confirm', { token });
     return response.data;
   },
 };
