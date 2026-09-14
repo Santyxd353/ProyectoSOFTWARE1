@@ -28,6 +28,13 @@ import AIChatInterface from '../chat/AIChatInterface';
 import { UMLClass, UMLRelation, Diagram } from '@/types/uml';
 import { useSocket } from '@/hooks/useSocket';
 import { useI18n } from '@/components/i18n/I18nProvider';
+import {
+  createOperationEnvelope,
+  getLastServerSequence,
+  getOrCreateDeviceId,
+  nextClientSequence,
+  rememberServerSequence,
+} from '@/lib/durable-collaboration';
 
 const nodeTypes = {
   umlClass: UMLClassNode,
@@ -54,13 +61,66 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
   const [isEditingRelationship, setIsEditingRelationship] = useState(false);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(true);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const { t } = useI18n();
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const confirmedVersionRef = useRef(diagram.version);
+  const confirmedDataRef = useRef<Record<string, unknown>>(
+    (diagram.data || { classes: [], relations: [] }) as Record<string, unknown>,
+  );
+  const saveInFlightRef = useRef(false);
+  const queuedSaveRef = useRef<Record<string, unknown> | null>(null);
+  const submitSaveRef = useRef<
+    ((data: Record<string, unknown>) => void) | null
+  >(null);
 
   // WebSocket connection for real-time collaboration
   const { socket, isConnected, emit } = useSocket(process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001');
+
+  const submitDurableSave = useCallback((data: Record<string, unknown>) => {
+    if (!socket || !isConnected) {
+      onSave(data);
+      return;
+    }
+    if (saveInFlightRef.current) {
+      queuedSaveRef.current = data;
+      return;
+    }
+    saveInFlightRef.current = true;
+    const envelope = createOperationEnvelope({
+      diagramId: diagram.id,
+      deviceId: getOrCreateDeviceId(localStorage),
+      clientSequence: nextClientSequence(localStorage),
+      baseVersion: confirmedVersionRef.current,
+      baseData: confirmedDataRef.current,
+      data,
+    });
+    socket.emit('diagram_change', envelope, (acknowledgement: any) => {
+      saveInFlightRef.current = false;
+      if (acknowledgement?.success) {
+        confirmedVersionRef.current = acknowledgement.version;
+        confirmedDataRef.current = data;
+        rememberServerSequence(
+          localStorage,
+          diagram.id,
+          acknowledgement.sequence,
+        );
+        setSyncError(null);
+        const queued = queuedSaveRef.current;
+        queuedSaveRef.current = null;
+        if (queued) submitSaveRef.current?.(queued);
+        return;
+      }
+      setSyncError(
+        acknowledgement?.conflictId
+          ? `Conflicto ${acknowledgement.conflictId}: el cambio quedó pendiente de resolución.`
+          : acknowledgement?.error || 'No se pudo confirmar el cambio colaborativo.',
+      );
+    });
+  }, [diagram.id, isConnected, onSave, socket]);
+  submitSaveRef.current = submitDurableSave;
 
   // Handle save - defined early to be used by other functions
   const handleSave = useCallback(() => {
@@ -100,8 +160,8 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
       intermediateTables: intermediateTables.length
     });
 
-    onSave(diagramData);
-  }, [nodes, edges, onSave, userId]);
+    submitDurableSave(diagramData);
+  }, [nodes, edges, submitDurableSave, userId]);
 
   // Función para detectar y crear tabla intermedia para relaciones N:N
   const createIntermediateTable = useCallback((edge: Edge, sourceNode: Node, targetNode: Node) => {
@@ -222,7 +282,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
 
             // Broadcast change
             if (socket && isConnected) {
-              emit('diagram_change', {
+              emit('diagram_preview', {
                 diagramId: diagram.id,
                 changes: {
                   type: 'edges',
@@ -258,7 +318,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
 
             // Broadcast change
             if (socket && isConnected) {
-              emit('diagram_change', {
+              emit('diagram_preview', {
                 diagramId: diagram.id,
                 changes: {
                   type: 'full_update',
@@ -314,7 +374,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
         setNodes((currentNodes) => {
           // Broadcast position changes to collaborators
           if (socket && isConnected) {
-            emit('diagram_change', {
+            emit('diagram_preview', {
               diagramId: diagram.id,
               changes: {
                 type: 'nodes',
@@ -508,15 +568,39 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
   // Join collaboration room when component mounts
   useEffect(() => {
     if (socket && isConnected) {
-      emit('join_diagram', {
-        diagramId: diagram.id,
-      });
+      socket.emit(
+        'join_diagram',
+        {
+          diagramId: diagram.id,
+          afterSequence: getLastServerSequence(localStorage, diagram.id),
+        },
+        (acknowledgement: any) => {
+          const events = acknowledgement?.events || [];
+          if (events.length === 0) return;
+          const latest = events[events.length - 1];
+          rememberServerSequence(
+            localStorage,
+            diagram.id,
+            latest.serverSequence,
+          );
+          window.location.reload();
+        },
+      );
 
-      // Listen for diagram changes from other users
-      socket.on('diagram_change', (data) => {
+      const handleRemoteChange = (data: any) => {
         console.log('📥 Recibido cambio de diagrama:', data);
         // Apply changes from other users
         if (data.userId !== userId) {
+          if (data.changes.type === 'full_update' && data.changes.data) {
+            confirmedDataRef.current = data.changes.data;
+            if (Number.isInteger(data.version)) {
+              confirmedVersionRef.current = data.version;
+            }
+            if (Number.isInteger(data.sequence)) {
+              rememberServerSequence(localStorage, diagram.id, data.sequence);
+            }
+            return;
+          }
           if (data.changes.type === 'nodes') {
             console.log('🔄 Actualizando solo nodos');
             setNodes(data.changes.nodes);
@@ -531,7 +615,9 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
         } else {
           console.log('⏭️ Ignorando mi propio cambio');
         }
-      });
+      };
+      socket.on('diagram_change', handleRemoteChange);
+      socket.on('diagram_preview', handleRemoteChange);
 
       socket.on('user_joined', (data) => {
         console.log('User joined:', data.userName);
@@ -546,6 +632,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
       if (socket) {
         emit('leave_diagram', { diagramId: diagram.id });
         socket.off('diagram_change');
+        socket.off('diagram_preview');
         socket.off('user_joined');
         socket.off('user_left');
       }
@@ -570,7 +657,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
 
         // Broadcast change to other users
         if (socket && isConnected) {
-          emit('diagram_change', {
+          emit('diagram_preview', {
             diagramId: diagram.id,
             changes: {
               type: 'edges',
@@ -605,7 +692,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
 
         // Broadcast change to other users
         if (socket && isConnected) {
-          emit('diagram_change', {
+          emit('diagram_preview', {
             diagramId: diagram.id,
             changes: {
               type: 'edges',
@@ -665,7 +752,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
 
       // Broadcast change to other users
       if (socket && isConnected) {
-        emit('diagram_change', {
+        emit('diagram_preview', {
           diagramId: diagram.id,
           changes: {
             type: 'nodes',
@@ -711,7 +798,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
 
       // Broadcast change to other users
       if (socket && isConnected) {
-        emit('diagram_change', {
+        emit('diagram_preview', {
           diagramId: diagram.id,
           changes: {
             type: 'nodes',
@@ -786,7 +873,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
 
       // Broadcast change to other users
       if (socket && isConnected) {
-        emit('diagram_change', {
+        emit('diagram_preview', {
           diagramId: diagram.id,
           changes: {
             type: 'edges',
@@ -824,7 +911,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
 
       // Emit to collaborators
       if (socket && isConnected) {
-        emit('diagram_change', {
+        emit('diagram_preview', {
           diagramId: diagram.id,
           changes: {
             type: 'nodes',
@@ -1035,7 +1122,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
       setTimeout(() => {
         // Broadcast to collaborators
         if (socket && isConnected) {
-          emit('diagram_change', {
+          emit('diagram_preview', {
             diagramId: diagram.id,
             changes: {
               type: 'full_update',
@@ -1147,6 +1234,11 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
               {isConnected ? t('diagramEditor.status.connected') : t('diagramEditor.status.disconnected')}
             </div>
           </div>
+          {syncError && (
+            <div className="absolute top-16 right-4 z-10 max-w-sm rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 shadow-sm">
+              {syncError}
+            </div>
+          )}
 
           {/* Modal Editor de Clase */}
           {isEditingClass && selectedNode && (

@@ -15,4 +15,19 @@ void main() {
     expect(await store.readJson('workspace:1'), {'id': '1', 'name': 'Local'});
     expect((await store.readQueue()).single.id, 'op-1');
   });
+
+  test('keeps one device identity and a monotonic client sequence', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalStore();
+
+    final firstIdentity = await store.readOrCreateDeviceId();
+    final secondIdentity = await store.readOrCreateDeviceId();
+    final firstSequence = await store.nextClientSequence();
+    final secondSequence = await store.nextClientSequence();
+
+    expect(firstIdentity, isNotEmpty);
+    expect(secondIdentity, firstIdentity);
+    expect(firstSequence, 1);
+    expect(secondSequence, 2);
+  });
 }

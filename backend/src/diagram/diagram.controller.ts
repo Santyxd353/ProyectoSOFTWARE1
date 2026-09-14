@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Res, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Res, UseGuards, Request } from '@nestjs/common';
 import { DiagramService } from './diagram.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { IsNotEmpty, IsString, IsObject, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, IsObject, IsOptional, IsInt, Min, MaxLength } from 'class-validator';
 import { Response } from 'express';
 import { DiagramInterchangeService } from '../diagram-interchange/diagram-interchange.service';
+import { CollaborationOperationService } from '../collaboration/collaboration-operation.service';
 
 class CreateDiagramDto {
   @IsString()
@@ -42,6 +43,7 @@ export class DiagramController {
   constructor(
     private diagramService: DiagramService,
     private readonly interchange: DiagramInterchangeService,
+    private readonly operations: CollaborationOperationService,
   ) {}
 
   @Post()
@@ -105,6 +107,54 @@ export class DiagramController {
     return this.diagramService.deleteDiagram(id, req.user.userId);
   }
 
+  @Post(':id/operations')
+  applyOperation(
+    @Param('id') id: string,
+    @Body() body: ApplyDiagramOperationDto,
+    @Request() req,
+  ) {
+    return this.operations.apply({
+      diagramId: id,
+      userId: req.user.userId,
+      deviceId: body.deviceId,
+      clientSequence: body.clientSequence,
+      baseVersion: body.baseVersion,
+      baseData: body.baseData,
+      changes: body.changes as any,
+    });
+  }
+
+  @Get(':id/operations')
+  replayOperations(
+    @Param('id') id: string,
+    @Query('after') after: string | undefined,
+    @Request() req,
+  ) {
+    return this.operations.eventsAfter(
+      id,
+      req.user.userId,
+      Number(after ?? 0),
+    );
+  }
+
+  @Get(':id/conflicts')
+  listConflicts(@Param('id') id: string, @Request() req) {
+    return this.operations.listConflicts(id, req.user.userId);
+  }
+
+  @Post('conflicts/:conflictId/resolve')
+  resolveConflict(
+    @Param('conflictId') conflictId: string,
+    @Body() body: ResolveConflictDto,
+    @Request() req,
+  ) {
+    return this.operations.resolveConflict(
+      conflictId,
+      req.user.userId,
+      body.resolution,
+    );
+  }
+
   @Post(':id/archive')
   async archiveDiagram(@Param('id') id: string, @Request() req) {
     return this.diagramService.archiveDiagram(id, req.user.userId);
@@ -128,4 +178,31 @@ class ImportXmiDto {
   @IsString()
   @IsNotEmpty()
   xmi: string;
+}
+
+class ApplyDiagramOperationDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  deviceId: string;
+
+  @IsInt()
+  @Min(1)
+  clientSequence: number;
+
+  @IsInt()
+  @Min(1)
+  baseVersion: number;
+
+  @IsObject()
+  @IsOptional()
+  baseData?: Record<string, unknown>;
+
+  @IsObject()
+  changes: Record<string, unknown>;
+}
+
+class ResolveConflictDto {
+  @IsObject()
+  resolution: Record<string, unknown>;
 }

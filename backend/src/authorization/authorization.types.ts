@@ -5,6 +5,8 @@ export type WorkspaceCapability =
   | 'repository:generate'
   | 'repository:restore'
   | 'comment:create'
+  | 'diagram:read'
+  | 'diagram:edit'
   | 'members:manage'
   | 'policy:manage';
 

@@ -33,4 +33,22 @@ void main() {
     expect(result.hasConflict, isTrue);
     expect(result.conflictingKeys, ['name']);
   });
+
+  test('round-trips the device sequence and base snapshot needed for retry', () {
+    const operation = SyncOperation(
+      id: 'op-1',
+      entityId: 'diagram-1',
+      deviceId: 'android-1',
+      clientSequence: 17,
+      baseVersion: 4,
+      baseData: {'classes': []},
+      payload: {'classes': [{'id': 'class-1'}]},
+    );
+
+    final restored = SyncOperation.fromJson(operation.toJson());
+
+    expect(restored.deviceId, 'android-1');
+    expect(restored.clientSequence, 17);
+    expect(restored.baseData, {'classes': []});
+  });
 }

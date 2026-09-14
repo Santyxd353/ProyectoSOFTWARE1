@@ -10,13 +10,20 @@ import 'core/storage/local_store.dart';
 import 'core/sync/sync_queue.dart';
 
 class AppController extends ChangeNotifier {
-  AppController({LocalStore? store, LocalAiEngine? localAi})
+  AppController({
+    LocalStore? store,
+    LocalAiEngine? localAi,
+    ApiClient? apiClient,
+  })
       : store = store ?? LocalStore(),
-        localAi = localAi ?? LocalAiEngine();
+        localAi = localAi ?? LocalAiEngine(),
+        api = apiClient ?? ApiClient(baseUrl: ''),
+        _apiInjected = apiClient != null;
 
   final LocalStore store;
   final LocalAiEngine localAi;
-  late ApiClient api;
+  final ApiClient api;
+  final bool _apiInjected;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   List<WorkspaceModel> workspaces = [];
   WorkspaceModel? activeWorkspace;
@@ -32,7 +39,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> initialize() async {
     final apiUrl = await store.readApiUrl();
-    api = ApiClient(baseUrl: apiUrl);
+    if (!_apiInjected) api.baseUrl = apiUrl;
     _token = await store.readToken();
     api.token = _token;
     pendingOperations = await store.readQueue();
@@ -197,23 +204,46 @@ class AppController extends ChangeNotifier {
 
   Future<void> _saveDiagram(Map<String, dynamic> data) async {
     final diagram = activeDiagram!;
+    final baseData = Map<String, dynamic>.from(diagram.data);
+    final deviceId = await store.readOrCreateDeviceId();
+    final clientSequence = await store.nextClientSequence();
+    final operation = SyncOperation(
+      id: '$deviceId:$clientSequence',
+      entityId: diagram.id,
+      deviceId: deviceId,
+      clientSequence: clientSequence,
+      baseVersion: diagram.version,
+      baseData: baseData,
+      payload: data,
+    );
     activeDiagram = diagram.copyWith(data: data, version: diagram.version + 1);
     await store.saveJson('diagram:${diagram.id}', activeDiagram!.toJson());
     notifyListeners();
     if (online) {
       try {
-        activeDiagram = await api.updateDiagram(diagram.id, data);
-        await store.saveJson('diagram:${diagram.id}', activeDiagram!.toJson());
-        notifyListeners();
-        return;
+        final acknowledgement = await api.applyDiagramOperation(
+          diagramId: operation.entityId,
+          deviceId: operation.deviceId,
+          clientSequence: operation.clientSequence,
+          baseVersion: operation.baseVersion,
+          baseData: operation.baseData,
+          data: operation.payload,
+        );
+        if (acknowledgement['status'] == 'CONFLICT') {
+          error =
+              'Conflicto ${acknowledgement['conflictId']} pendiente en ${operation.entityId}. Revisa ambas variantes antes de continuar.';
+        } else {
+          activeDiagram = diagram.copyWith(
+            data: data,
+            version: acknowledgement['version'] as int? ?? diagram.version + 1,
+          );
+          await store.saveJson('diagram:${diagram.id}', activeDiagram!.toJson());
+          notifyListeners();
+          return;
+        }
       } catch (_) {}
     }
-    pendingOperations.add(SyncOperation(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
-      entityId: diagram.id,
-      baseVersion: diagram.version,
-      payload: data,
-    ));
+    pendingOperations.add(operation);
     await store.saveQueue(pendingOperations);
     notifyListeners();
   }
@@ -221,7 +251,19 @@ class AppController extends ChangeNotifier {
   Future<void> syncPending() async {
     for (final operation in List<SyncOperation>.from(pendingOperations)) {
       try {
-        await api.updateDiagram(operation.entityId, operation.payload);
+        final acknowledgement = await api.applyDiagramOperation(
+          diagramId: operation.entityId,
+          deviceId: operation.deviceId,
+          clientSequence: operation.clientSequence,
+          baseVersion: operation.baseVersion,
+          baseData: operation.baseData,
+          data: operation.payload,
+        );
+        if (acknowledgement['status'] == 'CONFLICT') {
+          error =
+              'Conflicto ${acknowledgement['conflictId']} pendiente en ${operation.entityId}. Revisa ambas variantes antes de continuar.';
+          break;
+        }
         pendingOperations.removeWhere((item) => item.id == operation.id);
         await store.saveQueue(pendingOperations);
       } on ApiException catch (exception) {

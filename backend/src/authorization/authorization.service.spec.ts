@@ -35,10 +35,18 @@ describe('AuthorizationService', () => {
     [Role.VIEWER, 'repository:read', true],
     [Role.VIEWER, 'repository:restore', false],
     [Role.VIEWER, 'comment:create', false],
+    [Role.OWNER, 'diagram:edit', true],
+    [Role.EDITOR, 'diagram:edit', true],
+    [Role.VIEWER, 'diagram:edit', false],
+    [Role.VIEWER, 'diagram:read', true],
   ] as const)('enforces %s access to %s', async (role, capability, allowed) => {
     prisma.workspace.findUnique.mockResolvedValue(workspaceFor(role));
 
-    const operation = service.require('workspace-1', 'user-1', capability);
+    const operation = service.require(
+      'workspace-1',
+      'user-1',
+      capability as any,
+    );
 
     if (allowed) {
       await expect(operation).resolves.toMatchObject({ role });

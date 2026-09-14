@@ -6,6 +6,7 @@ import { AuthModule } from '../auth/auth.module';
 import { AuthorizationModule } from '../authorization/authorization.module';
 import { SocketAuthService } from './socket-auth.service';
 import { RepositoryRealtimeService } from './repository-realtime.service';
+import { CollaborationOperationService } from './collaboration-operation.service';
 
 @Module({
   imports: [PrismaModule, AuthModule, AuthorizationModule],
@@ -14,7 +15,12 @@ import { RepositoryRealtimeService } from './repository-realtime.service';
     CollaborationService,
     SocketAuthService,
     RepositoryRealtimeService,
+    CollaborationOperationService,
   ],
-  exports: [CollaborationService, RepositoryRealtimeService],
+  exports: [
+    CollaborationService,
+    RepositoryRealtimeService,
+    CollaborationOperationService,
+  ],
 })
 export class CollaborationModule {}

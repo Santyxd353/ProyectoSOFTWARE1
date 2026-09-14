@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Socket } from 'socket.io';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -54,6 +54,23 @@ export class CollaborationService {
       throw new Error('Access denied to this diagram');
     }
 
+  }
+
+  async assertDiagramEditAccess(
+    diagramId: string,
+    userId: string,
+  ): Promise<void> {
+    const diagram = await this.prisma.diagram.findUnique({
+      where: { id: diagramId },
+      include: { workspace: { include: { collaborators: true } } },
+    });
+    if (!diagram) throw new NotFoundException('Diagram not found');
+    const role = diagram.workspace.collaborators.find(
+      (item) => item.userId === userId,
+    )?.role;
+    if (diagram.workspace.ownerId !== userId && role !== 'EDITOR') {
+      throw new ForbiddenException('Viewer role cannot edit diagrams');
+    }
   }
 
   handleDisconnect(socketId: string) {

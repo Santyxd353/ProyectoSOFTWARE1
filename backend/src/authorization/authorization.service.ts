@@ -16,6 +16,8 @@ const ROLE_CAPABILITIES: Record<Role, readonly WorkspaceCapability[]> = {
     'repository:generate',
     'repository:restore',
     'comment:create',
+    'diagram:read',
+    'diagram:edit',
     'members:manage',
     'policy:manage',
   ],
@@ -24,8 +26,10 @@ const ROLE_CAPABILITIES: Record<Role, readonly WorkspaceCapability[]> = {
     'repository:generate',
     'repository:restore',
     'comment:create',
+    'diagram:read',
+    'diagram:edit',
   ],
-  [Role.VIEWER]: ['repository:read'],
+  [Role.VIEWER]: ['repository:read', 'diagram:read'],
 };
 
 @Injectable()

@@ -2,26 +2,38 @@ class SyncOperation {
   const SyncOperation({
     required this.id,
     required this.entityId,
+    this.deviceId = '',
+    this.clientSequence = 0,
     required this.baseVersion,
+    this.baseData = const {},
     required this.payload,
   });
 
   final String id;
   final String entityId;
+  final String deviceId;
+  final int clientSequence;
   final int baseVersion;
+  final Map<String, dynamic> baseData;
   final Map<String, dynamic> payload;
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'entityId': entityId,
+    'deviceId': deviceId,
+    'clientSequence': clientSequence,
     'baseVersion': baseVersion,
+    'baseData': baseData,
     'payload': payload,
   };
 
   factory SyncOperation.fromJson(Map<String, dynamic> json) => SyncOperation(
     id: json['id'] as String,
     entityId: json['entityId'] as String,
+    deviceId: json['deviceId'] as String? ?? '',
+    clientSequence: json['clientSequence'] as int? ?? 0,
     baseVersion: json['baseVersion'] as int,
+    baseData: Map<String, dynamic>.from(json['baseData'] as Map? ?? const {}),
     payload: Map<String, dynamic>.from(json['payload'] as Map),
   );
 }

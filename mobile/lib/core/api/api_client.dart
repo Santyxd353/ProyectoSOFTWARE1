@@ -69,6 +69,28 @@ class ApiClient {
     return DiagramModel.fromJson(_decode(response));
   }
 
+  Future<Map<String, dynamic>> applyDiagramOperation({
+    required String diagramId,
+    required String deviceId,
+    required int clientSequence,
+    required int baseVersion,
+    required Map<String, dynamic> baseData,
+    required Map<String, dynamic> data,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/diagrams/$diagramId/operations'),
+      headers: _headers,
+      body: jsonEncode({
+        'deviceId': deviceId,
+        'clientSequence': clientSequence,
+        'baseVersion': baseVersion,
+        'baseData': baseData,
+        'changes': {'type': 'full_update', 'data': data},
+      }),
+    );
+    return _decode(response);
+  }
+
   Future<Map<String, dynamic>> chat(String diagramId, String message) async {
     final response = await _client.post(
       Uri.parse('$baseUrl/ai-chat/chat'),

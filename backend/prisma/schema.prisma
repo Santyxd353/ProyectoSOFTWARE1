@@ -27,6 +27,8 @@ model User {
   codeRevisions       CodeRevision[]          @relation("RevisionAuthor")
   reviewComments      ReviewComment[]
   auditEvents         AuditEvent[]            @relation("AuditActor")
+  diagramOperations   DiagramOperation[]      @relation("OperationAuthor")
+  resolvedConflicts   SyncConflict[]          @relation("ConflictResolver")
   sentInvitations     WorkspaceInvitation[]   @relation("InvitationAuthor")
   acceptedInvitations WorkspaceInvitation[]   @relation("InvitationRecipient")
 
@@ -51,6 +53,7 @@ model Workspace {
   codeRevisions CodeRevision[]
   auditEvents   AuditEvent[]
   invitations   WorkspaceInvitation[]
+  syncConflicts SyncConflict[]
 
   @@map("workspaces")
 }
@@ -95,6 +98,8 @@ model Diagram {
   activities    DiagramActivity[]
   generatedCode GeneratedCode[]
   codeRevisions CodeRevision[]
+  operations    DiagramOperation[]
+  syncConflicts SyncConflict[]
 
   @@index([workspaceId, archivedAt])
   @@map("diagrams")
@@ -280,6 +285,69 @@ enum AuditAction {
   INVITATION_REVOKED
   DIAGRAM_ARCHIVED
   DIAGRAM_RESTORED
+  DIAGRAM_OPERATION_APPLIED
+  SYNC_CONFLICT_CREATED
+  SYNC_CONFLICT_RESOLVED
+}
+
+enum DiagramOperationStatus {
+  APPLIED
+  CONFLICT
+}
+
+enum SyncConflictStatus {
+  PENDING
+  RESOLVED
+}
+
+model DiagramOperation {
+  id             String                 @id @default(cuid())
+  diagramId      String
+  authorId       String
+  deviceId       String
+  clientSequence Int
+  serverSequence Int
+  baseVersion    Int
+  resultVersion  Int
+  operation      Json
+  beforeData     Json
+  afterData      Json
+  status         DiagramOperationStatus
+  createdAt      DateTime               @default(now())
+
+  diagram  Diagram       @relation(fields: [diagramId], references: [id], onDelete: Cascade)
+  author   User          @relation("OperationAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  conflict SyncConflict?
+
+  @@unique([deviceId, clientSequence])
+  @@unique([diagramId, serverSequence])
+  @@index([diagramId, createdAt])
+  @@map("diagram_operations")
+}
+
+model SyncConflict {
+  id           String             @id @default(cuid())
+  workspaceId  String
+  diagramId    String
+  operationId  String             @unique
+  baseVersion  Int
+  baseData     Json
+  localData    Json
+  remoteData   Json
+  resolution   Json?
+  status       SyncConflictStatus @default(PENDING)
+  resolvedById String?
+  createdAt    DateTime           @default(now())
+  resolvedAt   DateTime?
+
+  workspace  Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  diagram    Diagram          @relation(fields: [diagramId], references: [id], onDelete: Cascade)
+  operation  DiagramOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  resolvedBy User?            @relation("ConflictResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status, createdAt])
+  @@index([diagramId, status])
+  @@map("sync_conflicts")
 }
 
 model CodeRevision {

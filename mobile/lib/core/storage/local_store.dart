@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,6 +14,8 @@ class LocalStore {
   static const _queueKey = 'offline_sync_queue';
   static const _tokenKey = 'session_token';
   static const _apiUrlKey = 'api_url';
+  static const _deviceIdKey = 'device_id';
+  static const _clientSequenceKey = 'client_sequence';
 
   Future<void> saveJson(String key, Map<String, dynamic> value) async {
     final preferences = await SharedPreferences.getInstance();
@@ -57,5 +60,23 @@ class LocalStore {
   Future<String> readApiUrl() async {
     final preferences = await SharedPreferences.getInstance();
     return preferences.getString(_apiUrlKey) ?? 'http://10.0.2.2:3002/api';
+  }
+
+  Future<String> readOrCreateDeviceId() async {
+    final preferences = await SharedPreferences.getInstance();
+    final existing = preferences.getString(_deviceIdKey);
+    if (existing != null && existing.isNotEmpty) return existing;
+    final random = Random.secure().nextInt(0x7fffffff).toRadixString(16);
+    final created =
+        'android-${DateTime.now().microsecondsSinceEpoch.toRadixString(16)}-$random';
+    await preferences.setString(_deviceIdKey, created);
+    return created;
+  }
+
+  Future<int> nextClientSequence() async {
+    final preferences = await SharedPreferences.getInstance();
+    final next = (preferences.getInt(_clientSequenceKey) ?? 0) + 1;
+    await preferences.setInt(_clientSequenceKey, next);
+    return next;
   }
 }

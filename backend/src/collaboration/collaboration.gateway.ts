@@ -14,6 +14,10 @@ import { Server, Socket } from 'socket.io';
 import { AuthorizationService } from '../authorization/authorization.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CollaborationService } from './collaboration.service';
+import {
+  CollaborationOperationService,
+  DiagramChange,
+} from './collaboration-operation.service';
 import { RepositoryRealtimeService } from './repository-realtime.service';
 import {
   AuthenticatedSocketUser,
@@ -39,6 +43,7 @@ export class CollaborationGateway
     private readonly authorization: AuthorizationService,
     private readonly prisma: PrismaService,
     private readonly realtime: RepositoryRealtimeService,
+    private readonly operations: CollaborationOperationService,
   ) {}
 
   afterInit(server: Server): void {
@@ -60,7 +65,7 @@ export class CollaborationGateway
   @SubscribeMessage('join_diagram')
   async handleJoinDiagram(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { diagramId: string },
+    @MessageBody() data: { diagramId: string; afterSequence?: number },
   ) {
     try {
       const user = this.user(client);
@@ -74,7 +79,12 @@ export class CollaborationGateway
         userName: user.name,
         socketId: client.id,
       });
-      return { success: true };
+      const events = await this.operations.eventsAfter(
+        data.diagramId,
+        user.id,
+        data.afterSequence ?? 0,
+      );
+      return { success: true, events };
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -97,16 +107,38 @@ export class CollaborationGateway
   @SubscribeMessage('diagram_change')
   async handleDiagramChange(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { diagramId: string; changes: unknown },
+    @MessageBody() data: {
+      diagramId: string;
+      deviceId: string;
+      clientSequence: number;
+      baseVersion: number;
+      baseData?: Record<string, unknown>;
+      changes: DiagramChange;
+    },
   ) {
-    const user = this.user(client);
-    await this.collaboration.assertDiagramAccess(data.diagramId, user.id);
-    client.to(data.diagramId).emit('diagram_change', {
-      changes: data.changes,
-      userId: user.id,
-      timestamp: new Date().toISOString(),
-    });
-    return { success: true };
+    try {
+      const user = this.user(client);
+      const acknowledgement = await this.operations.apply({
+        ...data,
+        userId: user.id,
+      });
+      if (acknowledgement.status === 'CONFLICT') {
+        return { success: false, ...acknowledgement };
+      }
+      client.to(data.diagramId).emit('diagram_change', {
+        changes: data.changes,
+        userId: user.id,
+        timestamp: new Date().toISOString(),
+        sequence: acknowledgement.sequence,
+        version: acknowledgement.version,
+      });
+      return { success: true, ...acknowledgement };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Change rejected',
+      };
+    }
   }
 
   @SubscribeMessage('cursor_position')
@@ -121,6 +153,21 @@ export class CollaborationGateway
       userId: user.id,
       socketId: client.id,
     });
+  }
+
+  @SubscribeMessage('diagram_preview')
+  async handleDiagramPreview(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { diagramId: string; changes: unknown },
+  ) {
+    const user = this.user(client);
+    await this.collaboration.assertDiagramEditAccess(data.diagramId, user.id);
+    client.to(data.diagramId).emit('diagram_preview', {
+      changes: data.changes,
+      userId: user.id,
+      timestamp: new Date().toISOString(),
+    });
+    return { success: true };
   }
 
   @SubscribeMessage('element_selected')

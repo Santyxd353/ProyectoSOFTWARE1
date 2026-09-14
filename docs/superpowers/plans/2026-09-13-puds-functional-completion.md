@@ -38,12 +38,12 @@
 - Consumes: canonical diagram JSON and `AuthorizationService.require(workspaceId, userId, 'diagram:edit')`.
 - Produces: `apply(input): { status: 'APPLIED' | 'DUPLICATE' | 'CONFLICT'; sequence: number; version: number; conflictId?: string }` and `eventsAfter(diagramId, userId, sequence)`.
 
-- [ ] **Step 1: Write failing service tests** for sequential persistence, idempotency by `(deviceId, clientSequence)`, rejection of stale base versions with both variants stored, and ordered replay.
-- [ ] **Step 2: Run `npm test -- collaboration-operation.service.spec.ts --runInBand`** and verify failures are caused by the absent service/models.
-- [ ] **Step 3: Add `DiagramOperation` and `SyncConflict` models** with per-diagram server sequence, client idempotency key, base version, before/after JSON, author/device/timestamps, and explicit status.
-- [ ] **Step 4: Implement atomic apply/replay/resolve methods** so applying updates the diagram and creates an audit event in one transaction; stale versions create a conflict without overwriting either variant.
-- [ ] **Step 5: Persist before broadcasting in the gateway** and return acknowledgement data; add replay and conflict-resolution REST endpoints.
-- [ ] **Step 6: Run focused and complete backend tests** and commit the independently working server synchronization contract.
+- [x] **Step 1: Write failing service tests** for sequential persistence, idempotency by `(deviceId, clientSequence)`, rejection of stale base versions with both variants stored, and ordered replay.
+- [x] **Step 2: Run `npm test -- collaboration-operation.service.spec.ts --runInBand`** and verify failures are caused by the absent service/models.
+- [x] **Step 3: Add `DiagramOperation` and `SyncConflict` models** with per-diagram server sequence, client idempotency key, base version, before/after JSON, author/device/timestamps, and explicit status.
+- [x] **Step 4: Implement atomic apply/replay/resolve methods** so applying updates the diagram and creates an audit event in one transaction; stale versions create a conflict without overwriting either variant.
+- [x] **Step 5: Persist before broadcasting in the gateway** and return acknowledgement data; add replay and conflict-resolution REST endpoints.
+- [x] **Step 6: Run focused and complete backend tests** and commit the independently working server synchronization contract.
 
 ### Task 2: Confirmed JSON, ZIP, and XMI model interchange
 
