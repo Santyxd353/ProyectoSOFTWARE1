@@ -7,7 +7,7 @@ Plataforma colaborativa para diseñar modelos UML y generar proyectos de softwar
 ```text
 frontend/  Aplicación web con Next.js, React Flow y Socket.IO
 backend/   API NestJS, Prisma, colaboración y generación de código
-mobile/    Alcance y futura aplicación Flutter offline-first
+mobile/    Aplicación Flutter Android offline-first
 docs/      PUDS y documentación técnica del proyecto
 ```
 
@@ -24,16 +24,19 @@ docs/      PUDS y documentación técnica del proyecto
 - Descarga ZIP, restauración histórica y comentarios en tiempo real.
 - Administración de roles y política de comentarios para observadores.
 - Interfaz profesional con tema claro y modo oscuro.
+- Sincronización durable e idempotente, reproducción al reconectar y resolución de conflictos.
+- Importación y exportación confirmada mediante XMI 2.1/2.5.1, JSON y ZIP propio.
+- Especificación OpenAPI y colección Postman dentro de cada backend generado.
+- Refinamiento de backend asistido por IA, con propuesta previa y aplicación determinista confirmada.
+- Aplicación Android con caché local, cola offline, asistente por texto/voz y comandos UML básicos sin internet.
 
-## Ampliaciones pendientes
+## Alcance pendiente para despliegue
 
-- Aplicación móvil Flutter con operación offline-first.
-- Chat de IA por texto y audio, con funciones básicas locales.
-- Sincronización de operaciones y resolución de conflictos.
-- Importación y exportación UML mediante XMI, JSON y ZIP propio.
 - Despliegue objetivo sobre servicios administrados de Google Cloud.
+- Sustitución de las rutas locales de artefactos y base de datos por servicios administrados.
+- Configuración productiva de secretos, dominios, HTTPS, observabilidad y publicación Android.
 
-Estas ampliaciones siguen documentadas como entregas posteriores; no forman parte de la implementación actual.
+La versión actual está preparada y verificada para desarrollo local. La adaptación a Google Cloud se realizará al final, como se acordó, sin mezclar configuración productiva con esta etapa.
 
 ## Idiomas
 
@@ -85,6 +88,8 @@ Ejecuta `INICIAR_LOCAL.cmd` desde el Explorador de archivos o una terminal:
 
 La primera ejecución crea un PostgreSQL aislado dentro de `.local/`, genera credenciales aleatorias fuera de Git, instala dependencias cuando faltan, aplica las migraciones e inicia backend y frontend en segundo plano.
 
+Cada ejecución posterior vuelve a verificar el cliente Prisma y ejecuta `prisma migrate deploy`, por lo que una actualización del repositorio no deja la base local desfasada.
+
 Después abre `http://localhost:3000`. Los registros quedan en `.local/logs/`.
 
 Para detener todo:
@@ -94,6 +99,8 @@ Para detener todo:
 ```
 
 Docker Desktop no es necesario. Las funciones normales, colaboración y repositorio interno pueden probarse sin claves externas. Para probar la IA online, agrega una clave válida en `backend/.env` después de la preparación inicial.
+
+El refinamiento con IA acepta únicamente mejoras deterministas soportadas, muestra la propuesta y no genera una revisión hasta recibir confirmación. Los secretos detectados se sustituyen por `[REDACTED]` antes de enviar la instrucción al proveedor.
 
 ## Ejecución local
 
@@ -128,13 +135,21 @@ npm run build
 cd ..\backend
 npm test -- --runInBand
 npm run build
+
+cd ..\mobile
+flutter pub get
+flutter analyze
+flutter test
+flutter build apk --debug
 ```
 
-El frontend verifica tema, árbol de archivos y capacidades por rol. El backend prueba autorización, auditoría, almacenamiento seguro, publicación, revisión, descarga, restauración, comentarios, miembros y autenticación WebSocket.
+El frontend verifica idioma, tema, colaboración durable, árbol de archivos y capacidades por rol. El backend prueba autorización, auditoría, almacenamiento seguro, publicación, revisión, descarga, restauración, comentarios, miembros, intercambio UML, generación de artefactos, refinamiento confirmado y autenticación WebSocket. Android verifica IA local, persistencia, cola offline, sincronización y conflictos.
+
+La evidencia RF/CU y el recorrido local verificado están en [docs/TRACEABILITY.md](docs/TRACEABILITY.md).
 
 ## Compatibilidad
 
-Los ZIP generados antes de esta ampliación continúan disponibles desde la ruta histórica, ahora protegida por membresía del proyecto. Las generaciones nuevas se descargan desde el repositorio interno. Google Cloud Storage, XMI, aplicación móvil, sincronización offline e IA local permanecen en fases posteriores del PUDS.
+Los ZIP generados antes de esta ampliación continúan disponibles desde la ruta histórica, ahora protegida por membresía del proyecto. Las generaciones nuevas se descargan desde el repositorio interno. La interoperabilidad acepta XMI 2.1, 2.5 y 2.5.1, además del JSON canónico y el paquete ZIP propio; toda importación exige vista previa y confirmación.
 
 ## Repositorio oficial
 

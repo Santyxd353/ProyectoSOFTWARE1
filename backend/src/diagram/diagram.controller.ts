@@ -37,6 +37,58 @@ class AddClassDto {
   methods?: any[];
 }
 
+class PreviewImportDto {
+  @IsString()
+  @IsNotEmpty()
+  workspaceId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @IsIn(['xmi', 'json', 'zip'])
+  format: 'xmi' | 'json' | 'zip';
+
+  @IsString()
+  @IsNotEmpty()
+  content: string;
+}
+
+class ConfirmImportDto {
+  @IsString()
+  @IsNotEmpty()
+  token: string;
+}
+
+class ApplyDiagramOperationDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  deviceId: string;
+
+  @IsInt()
+  @Min(1)
+  clientSequence: number;
+
+  @IsInt()
+  @Min(1)
+  baseVersion: number;
+
+  @IsObject()
+  @IsOptional()
+  baseData?: Record<string, unknown>;
+
+  @IsObject()
+  changes: Record<string, unknown>;
+}
+
+class ResolveConflictDto {
+  @IsObject()
+  resolution: Record<string, unknown>;
+}
+
 @Controller('diagrams')
 @UseGuards(JwtAuthGuard)
 export class DiagramController {
@@ -198,56 +250,4 @@ export class DiagramController {
   async restoreDiagram(@Param('id') id: string, @Request() req) {
     return this.diagramService.restoreDiagram(id, req.user.userId);
   }
-}
-
-class PreviewImportDto {
-  @IsString()
-  @IsNotEmpty()
-  workspaceId: string;
-
-  @IsString()
-  @IsNotEmpty()
-  name: string;
-
-  @IsString()
-  @IsNotEmpty()
-  @IsIn(['xmi', 'json', 'zip'])
-  format: 'xmi' | 'json' | 'zip';
-
-  @IsString()
-  @IsNotEmpty()
-  content: string;
-}
-
-class ConfirmImportDto {
-  @IsString()
-  @IsNotEmpty()
-  token: string;
-}
-
-class ApplyDiagramOperationDto {
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(120)
-  deviceId: string;
-
-  @IsInt()
-  @Min(1)
-  clientSequence: number;
-
-  @IsInt()
-  @Min(1)
-  baseVersion: number;
-
-  @IsObject()
-  @IsOptional()
-  baseData?: Record<string, unknown>;
-
-  @IsObject()
-  changes: Record<string, unknown>;
-}
-
-class ResolveConflictDto {
-  @IsObject()
-  resolution: Record<string, unknown>;
 }

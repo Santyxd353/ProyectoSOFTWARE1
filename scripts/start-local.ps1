@@ -39,6 +39,7 @@ if ($requiresSetup) {
 }
 
 $postgresBin = Resolve-PostgresBin
+$npx = Get-Command npx.cmd -ErrorAction Stop
 $null = New-Item -ItemType Directory -Path $config.LogDirectory -Force
 $null = New-Item -ItemType Directory -Path $config.RuntimeDirectory -Force
 
@@ -52,6 +53,17 @@ if ($LASTEXITCODE -ne 0) {
     if ($LASTEXITCODE -ne 0) {
         throw 'PostgreSQL local no pudo iniciar.'
     }
+}
+
+Write-Host 'Verificando cliente Prisma y migraciones...'
+Push-Location (Join-Path $config.RepositoryRoot 'backend')
+try {
+    & $npx.Source prisma generate
+    if ($LASTEXITCODE -ne 0) { throw 'prisma generate falló.' }
+    & $npx.Source prisma migrate deploy
+    if ($LASTEXITCODE -ne 0) { throw 'prisma migrate deploy falló.' }
+} finally {
+    Pop-Location
 }
 
 $npm = Get-Command npm.cmd -ErrorAction Stop

@@ -47,10 +47,19 @@ export class CollaborationGateway
   ) {}
 
   afterInit(server: Server): void {
+    server.use(async (client, next) => {
+      try {
+        await this.socketAuth.authenticate(client);
+        next();
+      } catch {
+        next(new Error('Unauthorized'));
+      }
+    });
     this.realtime.attachServer(server);
   }
 
   async handleConnection(client: Socket): Promise<void> {
+    if (client.data.user) return;
     try {
       await this.socketAuth.authenticate(client);
     } catch {

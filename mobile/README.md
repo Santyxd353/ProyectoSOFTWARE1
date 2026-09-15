@@ -2,6 +2,8 @@
 
 Cliente Flutter del sistema ProyectoSoftware1. Permite iniciar sesión, consultar espacios de trabajo y diagramas, editar estructuras UML, trabajar sin conexión y usar el asistente por texto o voz.
 
+La plataforma móvil soportada en esta etapa es exclusivamente Android; no se incluye una compilación para iOS.
+
 ## Arquitectura de IA híbrida
 
 - El motor compacto incluido en la aplicación interpreta sin internet órdenes básicas como crear clases, agregar atributos y consultar ayuda.
@@ -31,6 +33,8 @@ Para instalar una compilación de depuración:
 flutter build apk --debug
 adb install -r build\app\outputs\flutter-apk\app-debug.apk
 ```
+
+El APK resultante queda en `mobile/build/app/outputs/flutter-apk/app-debug.apk`.
 
 ## Verificación
 

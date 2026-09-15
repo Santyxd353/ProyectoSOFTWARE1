@@ -1,6 +1,29 @@
 import { CollaborationGateway } from './collaboration.gateway';
 
 describe('CollaborationGateway durable changes', () => {
+  it('authenticates in namespace middleware before accepting client events', async () => {
+    const socketAuth = {
+      authenticate: jest.fn(async (client) => {
+        client.data.user = { id: 'editor-1', name: 'Editor' };
+      }),
+    };
+    const realtime = { attachServer: jest.fn() };
+    let middleware: any;
+    const server = { use: jest.fn((handler) => { middleware = handler; }) };
+    const gateway = new (CollaborationGateway as any)(
+      {}, socketAuth, {}, {}, realtime, {},
+    );
+
+    gateway.afterInit(server);
+    const client: any = { data: {} };
+    const next = jest.fn();
+    await middleware(client, next);
+
+    expect(socketAuth.authenticate).toHaveBeenCalledWith(client);
+    expect(next).toHaveBeenCalledWith();
+    expect(client.data.user.id).toBe('editor-1');
+  });
+
   it('returns missed durable events when an editor rejoins', async () => {
     const collaboration = {
       joinDiagram: jest.fn().mockResolvedValue(true),

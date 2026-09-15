@@ -8,11 +8,13 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { PrismaModule } from '../prisma/prisma.module';
 import { InvitationModule } from '../invitation/invitation.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
     PrismaModule,
     InvitationModule,
+    AuditModule,
     PassportModule,
     JwtModule.registerAsync({
       useFactory: (configService: ConfigService) => ({

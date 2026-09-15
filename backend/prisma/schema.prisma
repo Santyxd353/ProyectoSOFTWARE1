@@ -269,6 +269,8 @@ enum RevisionStatus {
 }
 
 enum AuditAction {
+  USER_REGISTERED
+  USER_LOGGED_IN
   REVISION_PUBLISHED
   REVISION_PUBLICATION_FAILED
   REVISION_COMPARED
@@ -421,7 +423,7 @@ model ReviewComment {
 
 model AuditEvent {
   id          String      @id @default(cuid())
-  workspaceId String
+  workspaceId String?
   actorId     String
   action      AuditAction
   entityType  String
@@ -429,7 +431,7 @@ model AuditEvent {
   metadata    Json        @default("{}")
   createdAt   DateTime    @default(now())
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   actor     User      @relation("AuditActor", fields: [actorId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, createdAt])

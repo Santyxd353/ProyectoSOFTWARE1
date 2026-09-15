@@ -5,6 +5,8 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import { InvitationService } from '../invitation/invitation.service';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -12,6 +14,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private readonly invitations: InvitationService,
+    private readonly audit: AuditService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -39,6 +42,14 @@ export class AuthService {
         },
       });
       await this.invitations.claimForUser(created.id, created.email, db);
+      await this.audit.record({
+        workspaceId: undefined,
+        actorId: created.id,
+        action: AuditAction.USER_REGISTERED,
+        entityType: 'User',
+        entityId: created.id,
+        metadata: {},
+      }, db);
       return created;
     });
 
@@ -69,6 +80,15 @@ export class AuthService {
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    await this.audit.record({
+      workspaceId: undefined,
+      actorId: user.id,
+      action: AuditAction.USER_LOGGED_IN,
+      entityType: 'User',
+      entityId: user.id,
+      metadata: {},
+    });
 
     // Generate JWT token
     const payload = { userId: user.id, email: user.email };

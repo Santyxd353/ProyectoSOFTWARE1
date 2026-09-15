@@ -14,7 +14,7 @@ const SENSITIVE_KEYS = new Set([
 ]);
 
 export interface RecordAuditEventInput {
-  workspaceId: string;
+  workspaceId?: string;
   actorId: string;
   action: AuditAction;
   entityType: string;

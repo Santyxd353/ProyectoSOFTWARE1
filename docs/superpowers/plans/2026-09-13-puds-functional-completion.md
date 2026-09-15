@@ -122,8 +122,8 @@
 - Consumes: the implemented REST, WebSocket, frontend, PostgreSQL, and Android contracts.
 - Produces: one-command local startup, deterministic migration instructions, physical-phone LAN instructions, and RF/CU-to-code/test evidence.
 
-- [ ] **Step 1: Apply all Prisma migrations to the local PostgreSQL instance** and verify a clean deploy.
-- [ ] **Step 2: Start API and web clients, then exercise authentication, project, diagram, generation, repository, import/export, and synchronization endpoints.**
-- [ ] **Step 3: Run backend tests/build, frontend tests/typecheck/build, Flutter analyze/test/APK build, and record exact commands/results.**
-- [ ] **Step 4: Update local launch scripts and documentation** only from verified runtime behavior.
-- [ ] **Step 5: Review every RF-01 through RF-24 and CU-01 through CU-20** against concrete files/tests; fix any remaining local-only gap before the final commit.
+- [x] **Step 1: Apply all Prisma migrations to the local PostgreSQL instance** and verify a clean deploy.
+- [x] **Step 2: Start API and web clients, then exercise authentication, project, diagram, generation, repository, import/export, and synchronization endpoints.**
+- [x] **Step 3: Run backend tests/build, frontend tests/typecheck/build, Flutter analyze/test/APK build, and record exact commands/results.**
+- [x] **Step 4: Update local launch scripts and documentation** only from verified runtime behavior.
+- [x] **Step 5: Review every RF-01 through RF-24 and CU-01 through CU-20** against concrete files/tests; fix any remaining local-only gap before the final commit.
