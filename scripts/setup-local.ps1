@@ -107,12 +107,13 @@ Write-LocalEnvironmentFiles `
 
 foreach ($application in @('backend', 'frontend')) {
     $applicationPath = Join-Path $config.RepositoryRoot $application
-    if (-not $SkipDependencies -and -not (Test-Path -LiteralPath (Join-Path $applicationPath 'node_modules'))) {
+    if (-not $SkipDependencies -and -not (Test-ApplicationDependenciesCurrent -ApplicationPath $applicationPath)) {
         Write-Host "Instalando dependencias de $application..."
         & $npm.Source ci --prefix $applicationPath
         if ($LASTEXITCODE -ne 0) {
             throw "npm ci falló para $application."
         }
+        Write-ApplicationDependencyMarker -ApplicationPath $applicationPath
     }
 }
 

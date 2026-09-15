@@ -21,7 +21,11 @@ $requiredPaths = @(
     (Join-Path $config.RepositoryRoot 'backend\node_modules'),
     (Join-Path $config.RepositoryRoot 'frontend\node_modules')
 )
-$requiresSetup = @($requiredPaths | Where-Object { -not (Test-Path -LiteralPath $_) }).Count -gt 0
+$missingRequiredPath = @($requiredPaths | Where-Object { -not (Test-Path -LiteralPath $_) }).Count -gt 0
+$staleDependencies = @('backend', 'frontend') | Where-Object {
+    -not (Test-ApplicationDependenciesCurrent -ApplicationPath (Join-Path $config.RepositoryRoot $_))
+}
+$requiresSetup = $missingRequiredPath -or @($staleDependencies).Count -gt 0
 
 if ($Plan) {
     [pscustomobject]@{

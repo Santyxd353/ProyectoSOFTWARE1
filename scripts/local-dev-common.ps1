@@ -25,6 +25,37 @@ function Get-LocalDevConfiguration {
     }
 }
 
+function Test-ApplicationDependenciesCurrent {
+    param(
+        [Parameter(Mandatory)] [string] $ApplicationPath
+    )
+
+    $lockPath = Join-Path $ApplicationPath 'package-lock.json'
+    $nodeModulesPath = Join-Path $ApplicationPath 'node_modules'
+    $markerPath = Join-Path $nodeModulesPath '.puds-package-lock.sha256'
+    if (-not (Test-Path -LiteralPath $lockPath) -or
+        -not (Test-Path -LiteralPath $nodeModulesPath) -or
+        -not (Test-Path -LiteralPath $markerPath)) {
+        return $false
+    }
+
+    $expectedHash = (Get-FileHash -LiteralPath $lockPath -Algorithm SHA256).Hash
+    $installedHash = ([IO.File]::ReadAllText($markerPath)).Trim()
+    return $installedHash -eq $expectedHash
+}
+
+function Write-ApplicationDependencyMarker {
+    param(
+        [Parameter(Mandatory)] [string] $ApplicationPath
+    )
+
+    $lockPath = Join-Path $ApplicationPath 'package-lock.json'
+    $nodeModulesPath = Join-Path $ApplicationPath 'node_modules'
+    $markerPath = Join-Path $nodeModulesPath '.puds-package-lock.sha256'
+    $lockHash = (Get-FileHash -LiteralPath $lockPath -Algorithm SHA256).Hash
+    [IO.File]::WriteAllText($markerPath, $lockHash)
+}
+
 function Resolve-PostgresBin {
     param(
         [string] $OverridePath

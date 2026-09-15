@@ -88,7 +88,7 @@ Ejecuta `INICIAR_LOCAL.cmd` desde el Explorador de archivos o una terminal:
 
 La primera ejecución crea un PostgreSQL aislado dentro de `.local/`, genera credenciales aleatorias fuera de Git, instala dependencias cuando faltan, aplica las migraciones e inicia backend y frontend en segundo plano.
 
-Cada ejecución posterior vuelve a verificar el cliente Prisma y ejecuta `prisma migrate deploy`, por lo que una actualización del repositorio no deja la base local desfasada.
+Cada ejecución posterior compara el hash de los archivos `package-lock.json`, reinstala únicamente las dependencias desfasadas, vuelve a generar el cliente Prisma y ejecuta `prisma migrate deploy`. Así, una actualización del repositorio no deja dependencias ni base de datos desfasadas.
 
 Después abre `http://localhost:3000`. Los registros quedan en `.local/logs/`.
 

@@ -15,6 +15,15 @@ try {
     [IO.File]::WriteAllText((Join-Path $fixtureRoot '.local\postgres-data\PG_VERSION'), '18')
     [IO.File]::WriteAllText((Join-Path $fixtureRoot 'backend\.env'), 'PORT=3002')
     [IO.File]::WriteAllText((Join-Path $fixtureRoot 'frontend\.env.local'), 'NEXT_PUBLIC_API_URL=http://localhost:3002/api')
+    foreach ($application in @('backend', 'frontend')) {
+        $lockPath = Join-Path $fixtureRoot "$application\package-lock.json"
+        [IO.File]::WriteAllText($lockPath, "${application}-lock-v1")
+        $lockHash = (Get-FileHash -LiteralPath $lockPath -Algorithm SHA256).Hash
+        [IO.File]::WriteAllText(
+            (Join-Path $fixtureRoot "$application\node_modules\.puds-package-lock.sha256"),
+            $lockHash
+        )
+    }
 
     $startScript = Join-Path $PSScriptRoot '..\start-local.ps1'
     $startPlan = (& $startScript -RepositoryRoot $fixtureRoot -Plan) | ConvertFrom-Json
@@ -23,6 +32,12 @@ try {
     }
     if ($startPlan.WebUrl -ne 'http://localhost:3000' -or $startPlan.ApiUrl -ne 'http://localhost:3002/api') {
         throw 'Start plan exposed incorrect local URLs.'
+    }
+
+    [IO.File]::WriteAllText((Join-Path $fixtureRoot 'backend\package-lock.json'), 'backend-lock-v2')
+    $staleDependencyPlan = (& $startScript -RepositoryRoot $fixtureRoot -Plan) | ConvertFrom-Json
+    if (-not $staleDependencyPlan.RequiresSetup) {
+        throw 'A changed package lock must require dependency setup.'
     }
 
     $stopScript = Join-Path $PSScriptRoot '..\stop-local.ps1'
