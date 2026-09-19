@@ -2,7 +2,7 @@
 
 Fecha de verificación: 14 de septiembre de 2026.
 
-Estado del alcance: los 24 requisitos funcionales y los 20 casos de uso del PUDS tienen implementación local en el monorepositorio. El despliegue en Google Cloud permanece fuera de esta etapa, por acuerdo del proyecto.
+Estado del alcance: los RF-01 a RF-24 y CU-01 a CU-20 tienen implementación local en el monorepositorio. La ampliación documental de paridad Android incorpora RF-25 a RF-32 y CU-21 a CU-25; permanecen pendientes hasta completar y verificar su implementación. El despliegue en Google Cloud continúa fuera de esta etapa.
 
 ## Requisitos funcionales
 
@@ -25,13 +25,21 @@ Estado del alcance: los 24 requisitos funcionales y los 20 casos de uso del PUDS
 | RF-15 | Ejecutar comandos UML básicos sin conexión a internet. | `mobile/lib/core/ai/local_ai_engine.dart`, `mobile/test/local_ai_engine_test.dart` | Implementado y probado sin servicio remoto. |
 | RF-16 | Sincronizar operaciones móviles pendientes al recuperar conectividad. | `mobile/lib/app_controller.dart`, `mobile/lib/core/api/api_client.dart`, `backend/src/collaboration/collaboration-operation.service.ts` | Implementado con cola durable e idempotencia. |
 | RF-17 | Importar y exportar modelos mediante XMI, JSON y ZIP propio. | `backend/src/diagram-interchange/diagram-interchange.service.ts`, `frontend/app/workspace/[workspaceId]/page.tsx` | Implementado con vista previa, advertencias y confirmación. |
-| RF-18 | Refinar código y decisiones de diseño con una IA en la nube. | `backend/src/ai-chat/backend-refinement.service.ts`, `frontend/components/code-generation/CodeGenerationPanel.tsx` | Implementado; requiere `CLAUDE_API_KEY` e internet para una llamada real. |
+| RF-18 | Refinar código y decisiones de diseño con una IA en la nube. | `backend/src/ai-chat/backend-refinement.service.ts`, `frontend/components/code-generation/CodeGenerationPanel.tsx` | Implementado; requiere `ANTHROPIC_API_KEY` e internet para una llamada real. Mantiene compatibilidad temporal con `CLAUDE_API_KEY`. |
 | RF-19 | Permitir revisión colaborativa del código y su historial. | `backend/src/code-repository/code-repository.service.ts`, `frontend/components/repository/CommentPanel.tsx` | Implementado; comentario de archivo/línea verificado. |
 | RF-20 | Detectar y resolver conflictos conservando ambas variantes. | `backend/src/collaboration/collaboration-operation.service.ts`, `mobile/lib/core/sync/sync_queue.dart` | Implementado y probado. |
 | RF-21 | Administrar roles OWNER, EDITOR y VIEWER en todos los canales. | `backend/src/authorization/authorization.service.ts`, `frontend/lib/repository-capabilities.ts` | Implementado en REST, WebSocket y descargas. |
 | RF-22 | Descargar, comparar y restaurar revisiones autorizadas. | `backend/src/code-repository/code-repository.controller.ts`, `RevisionCompare.tsx` | Implementado; ZIP, comparación y restauración verificados. |
 | RF-23 | Persistir datos y artefactos fuera de instancias efímeras de ejecución. | `backend/prisma/schema.prisma`, `backend/src/artifact-storage/local-artifact-storage.service.ts` | Implementado localmente en PostgreSQL y `.local`/`artifacts`. |
 | RF-24 | Registrar eventos relevantes para auditoría y diagnóstico. | `backend/src/audit/audit.service.ts`, modelos `AuditEvent` y `DiagramActivity` | Implementado; metadatos sensibles se filtran. |
+| RF-25 | Ofrecer en Android las funciones de cuenta, perfil, idioma, tema y acceso disponibles en la web. | Implementación Android por completar. | Pendiente documentado. |
+| RF-26 | Crear y editar clases, atributos, métodos y relaciones mediante un editor UML táctil. | Implementación Android por completar. | Pendiente documentado. |
+| RF-27 | Administrar desde Android el ciclo de vida de proyectos y diagramas según permisos. | Implementación Android por completar. | Pendiente documentado. |
+| RF-28 | Invitar por correo, enlace o código temporal, revocable y asociado a un rol. | API y aplicación Android por completar. | Pendiente documentado. |
+| RF-29 | Colaborar en tiempo real desde Android con presencia y operaciones confirmadas. | Cliente Socket.IO móvil por completar. | Pendiente documentado. |
+| RF-30 | Generar, navegar, comentar, descargar, comparar y restaurar código desde Android. | Cliente móvil del repositorio por completar. | Pendiente documentado. |
+| RF-31 | Importar y exportar XMI, JSON y ZIP desde el almacenamiento del dispositivo. | Integración de archivos Android por completar. | Pendiente documentado. |
+| RF-32 | Visualizar y resolver conflictos móviles conservando variantes, autor y versión. | Interfaz móvil de conflictos por completar. | Pendiente documentado. |
 
 ## Casos de uso
 
@@ -57,6 +65,11 @@ Estado del alcance: los 24 requisitos funcionales y los 20 casos de uso del PUDS
 | CU-18 | Detectar y resolver conflictos de sincronización | RF-16, RF-20, RF-24 | Conflicto real creado/resuelto; ambas variantes se conservan hasta resolver. |
 | CU-19 | Administrar roles y permisos | RF-05, RF-21, RF-24 | `authorization.service.spec.ts`, `workspace.service.spec.ts`, autenticación de socket. |
 | CU-20 | Descargar, comparar o restaurar una revisión | RF-13, RF-22, RF-23 | Descarga ZIP 200, comparación de 19 archivos y nueva revisión restaurada. |
+| CU-21 | Gestionar cuenta, proyectos y diagramas desde Android | RF-25, RF-27 | Pendiente de recorrido Android completo. |
+| CU-22 | Editar un diagrama UML táctil | RF-26, RF-29 | Pendiente de pruebas de lienzo, formularios y sincronización. |
+| CU-23 | Invitar mediante enlace o código | RF-21, RF-28 | Pendiente de pruebas de vencimiento, revocación, rol e idempotencia. |
+| CU-24 | Generar y revisar artefactos desde Android | RF-30 | Pendiente de recorrido móvil de generación y repositorio. |
+| CU-25 | Intercambiar y sincronizar trabajo desde Android | RF-16, RF-20, RF-29, RF-31, RF-32 | Pendiente de pruebas online, offline, importación, exportación y conflictos. |
 
 ## Verificación ejecutada
 
@@ -69,4 +82,4 @@ Estado del alcance: los 24 requisitos funcionales y los 20 casos de uso del PUDS
 - Android: Flutter 3.35.7, `flutter analyze`, 13 pruebas y `flutter build apk --debug`.
 - APK generado en `mobile/build/app/outputs/flutter-apk/app-debug.apk`.
 
-La llamada al proveedor Claude no se ejecutó contra una cuenta real porque el entorno local verificado mantiene `CLAUDE_API_KEY` vacío. El contrato, redacción de secretos, validación de esquema, caducidad/autorización del token, ausencia de mutación durante propuesta y trazabilidad tras confirmación sí están cubiertos por pruebas automatizadas.
+La llamada al proveedor Claude no se ejecutó contra una cuenta real porque el entorno local verificado mantiene `ANTHROPIC_API_KEY` vacío. El contrato, selección configurable de modelo, redacción de secretos, validación de esquema, caducidad/autorización del token, ausencia de mutación durante propuesta, modo local explícito y trazabilidad tras confirmación sí están cubiertos por pruebas automatizadas.
