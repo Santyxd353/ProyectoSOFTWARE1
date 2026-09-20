@@ -1,15 +1,16 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import 'core/ai/local_ai_engine.dart';
 import 'core/api/api_client.dart';
 import 'core/models/models.dart';
 import 'core/storage/local_store.dart';
+import 'core/sync/sync_coordinator.dart';
 import 'core/sync/sync_queue.dart';
 
-class AppController extends ChangeNotifier {
+class AppController extends ChangeNotifier with WidgetsBindingObserver {
   AppController({
     LocalStore? store,
     LocalAiEngine? localAi,
@@ -17,12 +18,26 @@ class AppController extends ChangeNotifier {
   }) : store = store ?? LocalStore(),
        localAi = localAi ?? LocalAiEngine(),
        api = apiClient ?? ApiClient(baseUrl: ''),
-       _apiInjected = apiClient != null;
+       _apiInjected = apiClient != null {
+    syncCoordinator = SyncCoordinator(
+      store: this.store,
+      apply: (operation) => api.applyDiagramOperation(
+        diagramId: operation.entityId,
+        deviceId: operation.deviceId,
+        clientSequence: operation.clientSequence,
+        baseVersion: operation.baseVersion,
+        baseData: operation.baseData,
+        data: operation.payload,
+      ),
+    );
+    syncCoordinator.addListener(_onSyncChanged);
+  }
 
   final LocalStore store;
   final LocalAiEngine localAi;
   final ApiClient api;
   final bool _apiInjected;
+  late final SyncCoordinator syncCoordinator;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   List<WorkspaceModel> workspaces = [];
   WorkspaceModel? activeWorkspace;
@@ -30,7 +45,10 @@ class AppController extends ChangeNotifier {
   UserProfile? profile;
   WorkspaceMembersModel? workspaceMembers;
   List<WorkspaceInvitationModel> pendingInvitations = [];
-  List<SyncOperation> pendingOperations = [];
+  List<SyncOperation> get pendingOperations => syncCoordinator.pending;
+  set pendingOperations(List<SyncOperation> value) =>
+      syncCoordinator.seed(value);
+  SyncStatus get syncStatus => syncCoordinator.status;
   String locale = 'es';
   String themeMode = 'system';
   bool initialized = false;
@@ -42,13 +60,14 @@ class AppController extends ChangeNotifier {
   bool get signedIn => _token != null;
 
   Future<void> initialize() async {
+    WidgetsBinding.instance.addObserver(this);
     final apiUrl = await store.readApiUrl();
     if (!_apiInjected) api.baseUrl = apiUrl;
     _token = await store.readToken();
     api.token = _token;
     locale = await store.readLocale();
     themeMode = await store.readThemeMode();
-    pendingOperations = await store.readQueue();
+    await syncCoordinator.start();
     workspaces = (await store.readJsonList('workspaces'))
         .map(
           (item) =>
@@ -75,6 +94,13 @@ class AppController extends ChangeNotifier {
     }
     initialized = true;
     notifyListeners();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && online && signedIn) {
+      unawaited(syncPending());
+    }
   }
 
   Future<void> login(String email, String password) async {
@@ -491,69 +517,41 @@ class AppController extends ChangeNotifier {
       baseData: baseData,
       payload: data,
     );
+    await syncCoordinator.enqueue(operation);
     activeDiagram = diagram.copyWith(data: data, version: diagram.version + 1);
     await store.saveJson('diagram:${diagram.id}', activeDiagram!.toJson());
     notifyListeners();
-    if (online) {
-      try {
-        final acknowledgement = await api.applyDiagramOperation(
-          diagramId: operation.entityId,
-          deviceId: operation.deviceId,
-          clientSequence: operation.clientSequence,
-          baseVersion: operation.baseVersion,
-          baseData: operation.baseData,
-          data: operation.payload,
-        );
-        if (acknowledgement['status'] == 'CONFLICT') {
-          error =
-              'Conflicto ${acknowledgement['conflictId']} pendiente en ${operation.entityId}. Revisa ambas variantes antes de continuar.';
-        } else {
-          activeDiagram = diagram.copyWith(
-            data: data,
-            version: acknowledgement['version'] as int? ?? diagram.version + 1,
-          );
-          await store.saveJson(
-            'diagram:${diagram.id}',
-            activeDiagram!.toJson(),
-          );
-          notifyListeners();
-          return;
-        }
-      } catch (_) {}
-    }
-    pendingOperations.add(operation);
-    await store.saveQueue(pendingOperations);
-    notifyListeners();
+    if (online) await syncPending();
   }
 
   Future<void> syncPending() async {
-    for (final operation in List<SyncOperation>.from(pendingOperations)) {
-      try {
-        final acknowledgement = await api.applyDiagramOperation(
-          diagramId: operation.entityId,
-          deviceId: operation.deviceId,
-          clientSequence: operation.clientSequence,
-          baseVersion: operation.baseVersion,
-          baseData: operation.baseData,
-          data: operation.payload,
+    final report = await syncCoordinator.syncNow();
+    for (final applied in report.applied) {
+      final diagram = activeDiagram;
+      if (diagram != null && diagram.id == applied.operation.entityId) {
+        activeDiagram = diagram.copyWith(
+          version: applied.response['version'] as int? ?? diagram.version,
         );
-        if (acknowledgement['status'] == 'CONFLICT') {
-          error =
-              'Conflicto ${acknowledgement['conflictId']} pendiente en ${operation.entityId}. Revisa ambas variantes antes de continuar.';
-          break;
-        }
-        pendingOperations.removeWhere((item) => item.id == operation.id);
-        await store.saveQueue(pendingOperations);
-      } on ApiException catch (exception) {
-        if (exception.statusCode == 409) {
-          error =
-              'Conflicto pendiente en ${operation.entityId}. Revisa los cambios antes de continuar.';
-          break;
-        }
+        await store.saveJson('diagram:${diagram.id}', activeDiagram!.toJson());
       }
+    }
+    switch (syncCoordinator.status) {
+      case SyncStatus.conflict:
+        error = report.conflictId == null
+            ? 'Conflicto pendiente. Revisa los cambios antes de continuar.'
+            : 'Conflicto ${report.conflictId} pendiente. Revisa ambas variantes antes de continuar.';
+      case SyncStatus.reviewRequired:
+        error =
+            'La sesión expiró. Inicia sesión para sincronizar sin perder tus cambios.';
+      case SyncStatus.synced:
+        error = null;
+      case SyncStatus.pending:
+        break;
     }
     notifyListeners();
   }
+
+  void _onSyncChanged() => notifyListeners();
 
   Future<void> _run(Future<void> Function() action) async {
     busy = true;
@@ -572,7 +570,10 @@ class AppController extends ChangeNotifier {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _connectivitySubscription?.cancel();
+    syncCoordinator.removeListener(_onSyncChanged);
+    syncCoordinator.dispose();
     super.dispose();
   }
 }

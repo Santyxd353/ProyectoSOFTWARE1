@@ -7,6 +7,8 @@ class SyncOperation {
     required this.baseVersion,
     this.baseData = const {},
     required this.payload,
+    this.attemptCount = 0,
+    this.nextAttemptAt,
   });
 
   final String id;
@@ -16,6 +18,8 @@ class SyncOperation {
   final int baseVersion;
   final Map<String, dynamic> baseData;
   final Map<String, dynamic> payload;
+  final int attemptCount;
+  final DateTime? nextAttemptAt;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -25,6 +29,9 @@ class SyncOperation {
     'baseVersion': baseVersion,
     'baseData': baseData,
     'payload': payload,
+    'attemptCount': attemptCount,
+    if (nextAttemptAt != null)
+      'nextAttemptAt': nextAttemptAt!.toIso8601String(),
   };
 
   factory SyncOperation.fromJson(Map<String, dynamic> json) => SyncOperation(
@@ -35,6 +42,35 @@ class SyncOperation {
     baseVersion: json['baseVersion'] as int,
     baseData: Map<String, dynamic>.from(json['baseData'] as Map? ?? const {}),
     payload: Map<String, dynamic>.from(json['payload'] as Map),
+    attemptCount: json['attemptCount'] as int? ?? 0,
+    nextAttemptAt: json['nextAttemptAt'] == null
+        ? null
+        : DateTime.parse(json['nextAttemptAt'] as String),
+  );
+
+  SyncOperation copyWith({
+    String? id,
+    String? entityId,
+    String? deviceId,
+    int? clientSequence,
+    int? baseVersion,
+    Map<String, dynamic>? baseData,
+    Map<String, dynamic>? payload,
+    int? attemptCount,
+    DateTime? nextAttemptAt,
+    bool clearNextAttemptAt = false,
+  }) => SyncOperation(
+    id: id ?? this.id,
+    entityId: entityId ?? this.entityId,
+    deviceId: deviceId ?? this.deviceId,
+    clientSequence: clientSequence ?? this.clientSequence,
+    baseVersion: baseVersion ?? this.baseVersion,
+    baseData: baseData ?? this.baseData,
+    payload: payload ?? this.payload,
+    attemptCount: attemptCount ?? this.attemptCount,
+    nextAttemptAt: clearNextAttemptAt
+        ? null
+        : nextAttemptAt ?? this.nextAttemptAt,
   );
 }
 

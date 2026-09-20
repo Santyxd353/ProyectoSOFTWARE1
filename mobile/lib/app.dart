@@ -3,6 +3,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 import 'app_controller.dart';
+import 'core/sync/sync_coordinator.dart';
 import 'features/auth/register_screen.dart';
 import 'features/diagrams/editor/class_form.dart';
 import 'features/diagrams/editor/relation_form.dart';
@@ -241,6 +242,7 @@ class ProjectsScreen extends StatelessWidget {
           ConnectionBadge(
             online: controller.online,
             queued: controller.pendingOperations.length,
+            status: controller.syncStatus,
           ),
           IconButton(
             onPressed: () => Navigator.of(context).push(
@@ -351,6 +353,7 @@ class WorkspaceScreen extends StatelessWidget {
           ConnectionBadge(
             online: controller.online,
             queued: controller.pendingOperations.length,
+            status: controller.syncStatus,
           ),
           IconButton(
             tooltip: text('Proyecto y miembros', 'Project and members'),
@@ -660,6 +663,7 @@ class _DiagramScreenState extends State<DiagramScreen> {
           ConnectionBadge(
             online: widget.controller.online,
             queued: widget.controller.pendingOperations.length,
+            status: widget.controller.syncStatus,
           ),
           if (editable)
             IconButton(
@@ -867,6 +871,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                 ConnectionBadge(
                   online: widget.controller.online,
                   queued: widget.controller.pendingOperations.length,
+                  status: widget.controller.syncStatus,
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
@@ -1011,26 +1016,33 @@ class ConnectionBadge extends StatelessWidget {
   const ConnectionBadge({
     required this.online,
     required this.queued,
+    required this.status,
     super.key,
   });
   final bool online;
   final int queued;
+  final SyncStatus status;
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 8),
-    child: Chip(
-      avatar: Icon(
-        online ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
-        size: 17,
+  Widget build(BuildContext context) {
+    final (icon, label) = switch (status) {
+      SyncStatus.conflict => (Icons.merge_type, 'Conflicto'),
+      SyncStatus.reviewRequired => (Icons.lock_clock_outlined, 'Revisión'),
+      SyncStatus.pending when online => (
+        Icons.cloud_upload_outlined,
+        '$queued pendientes',
       ),
-      label: Text(
-        online
-            ? (queued == 0 ? 'En línea' : '$queued pendientes')
-            : 'Sin conexión',
+      _ when !online => (Icons.cloud_off_outlined, 'Sin conexión'),
+      _ => (Icons.cloud_done_outlined, 'Sincronizado'),
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Chip(
+        avatar: Icon(icon, size: 17),
+        label: Text(label),
+        visualDensity: VisualDensity.compact,
       ),
-      visualDensity: VisualDensity.compact,
-    ),
-  );
+    );
+  }
 }
 
 Future<void> showApiDialog(
