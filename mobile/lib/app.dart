@@ -5,6 +5,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'app_controller.dart';
 import 'core/sync/sync_coordinator.dart';
 import 'features/auth/register_screen.dart';
+import 'features/conflicts/conflicts_screen.dart';
 import 'features/diagrams/editor/class_form.dart';
 import 'features/diagrams/editor/relation_form.dart';
 import 'features/diagrams/editor/uml_canvas.dart';
@@ -12,6 +13,7 @@ import 'features/diagrams/editor/uml_canvas_controller.dart';
 import 'features/settings/app_text.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/workspaces/workspace_management.dart';
+import 'features/workspaces/invitations_screen.dart';
 
 class ProyectoSoftwareApp extends StatefulWidget {
   const ProyectoSoftwareApp({super.key});
@@ -243,6 +245,15 @@ class ProjectsScreen extends StatelessWidget {
             online: controller.online,
             queued: controller.pendingOperations.length,
             status: controller.syncStatus,
+          ),
+          IconButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => InvitationsScreen(controller: controller),
+              ),
+            ),
+            tooltip: text('Unirse con código', 'Join with code'),
+            icon: const Icon(Icons.group_add_outlined),
           ),
           IconButton(
             onPressed: () => Navigator.of(context).push(
@@ -664,6 +675,28 @@ class _DiagramScreenState extends State<DiagramScreen> {
             online: widget.controller.online,
             queued: widget.controller.pendingOperations.length,
             status: widget.controller.syncStatus,
+          ),
+          if (widget.controller.realtime.presence.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Chip(
+                avatar: const Icon(Icons.groups_outlined, size: 17),
+                label: Text('${widget.controller.realtime.presence.length}'),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          IconButton(
+            tooltip: 'Revisar conflictos',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ConflictsScreen(controller: widget.controller),
+              ),
+            ),
+            icon: Badge(
+              isLabelVisible: widget.controller.conflicts.isNotEmpty,
+              label: Text('${widget.controller.conflicts.length}'),
+              child: const Icon(Icons.merge_type),
+            ),
           ),
           if (editable)
             IconButton(

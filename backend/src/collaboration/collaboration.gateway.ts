@@ -93,7 +93,15 @@ export class CollaborationGateway
         user.id,
         data.afterSequence ?? 0,
       );
-      return { success: true, events };
+      const presence = this.collaboration
+        .getConnectedUsers(data.diagramId)
+        .filter((item) => item.socketId !== client.id)
+        .map(({ socketId, userId, userName }) => ({
+          socketId,
+          userId,
+          userName,
+        }));
+      return { success: true, events, presence };
     } catch (error) {
       return { success: false, error: error.message };
     }

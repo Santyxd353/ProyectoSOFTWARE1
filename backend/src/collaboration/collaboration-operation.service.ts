@@ -236,7 +236,13 @@ export class CollaborationOperationService {
       orderBy: { createdAt: 'asc' },
       include: {
         operation: {
-          select: { authorId: true, createdAt: true, serverSequence: true },
+          select: {
+            authorId: true,
+            createdAt: true,
+            serverSequence: true,
+            deviceId: true,
+            clientSequence: true,
+          },
         },
       },
     });

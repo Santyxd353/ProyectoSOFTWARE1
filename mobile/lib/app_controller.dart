@@ -6,15 +6,20 @@ import 'package:flutter/widgets.dart';
 import 'core/ai/local_ai_engine.dart';
 import 'core/api/api_client.dart';
 import 'core/models/models.dart';
+import 'core/realtime/realtime_client.dart';
 import 'core/storage/local_store.dart';
 import 'core/sync/sync_coordinator.dart';
 import 'core/sync/sync_queue.dart';
+import 'features/conflicts/conflict_merge.dart';
+import 'features/workspaces/invitation_link_service.dart';
 
 class AppController extends ChangeNotifier with WidgetsBindingObserver {
   AppController({
     LocalStore? store,
     LocalAiEngine? localAi,
     ApiClient? apiClient,
+    RealtimeClient? realtimeClient,
+    InvitationLinkService? invitationLinkService,
   }) : store = store ?? LocalStore(),
        localAi = localAi ?? LocalAiEngine(),
        api = apiClient ?? ApiClient(baseUrl: ''),
@@ -31,6 +36,11 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       ),
     );
     syncCoordinator.addListener(_onSyncChanged);
+    realtime =
+        realtimeClient ??
+        RealtimeClient(onDurableEvent: _handleRemoteDiagramEvent);
+    realtime.addListener(_onRealtimeChanged);
+    invitationLinks = invitationLinkService ?? InvitationLinkService();
   }
 
   final LocalStore store;
@@ -38,6 +48,8 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   final ApiClient api;
   final bool _apiInjected;
   late final SyncCoordinator syncCoordinator;
+  late final RealtimeClient realtime;
+  late final InvitationLinkService invitationLinks;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   List<WorkspaceModel> workspaces = [];
   WorkspaceModel? activeWorkspace;
@@ -45,6 +57,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   UserProfile? profile;
   WorkspaceMembersModel? workspaceMembers;
   List<WorkspaceInvitationModel> pendingInvitations = [];
+  List<SyncConflict> conflicts = [];
+  PortableInvitationModel? latestPortableInvitation;
+  String? pendingInvitationSecret;
   List<SyncOperation> get pendingOperations => syncCoordinator.pending;
   set pendingOperations(List<SyncOperation> value) =>
       syncCoordinator.seed(value);
@@ -65,6 +80,11 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     if (!_apiInjected) api.baseUrl = apiUrl;
     _token = await store.readToken();
     api.token = _token;
+    try {
+      await invitationLinks.start(_handleInvitationSecret);
+    } catch (_) {
+      // Manual code entry remains available if Android link delivery is absent.
+    }
     locale = await store.readLocale();
     themeMode = await store.readThemeMode();
     await syncCoordinator.start();
@@ -91,6 +111,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         refreshWorkspaces(silent: true),
         loadProfile(silent: true),
       ]);
+      if (pendingInvitationSecret != null) {
+        await claimPortableInvitation(pendingInvitationSecret!);
+      }
     }
     initialized = true;
     notifyListeners();
@@ -113,6 +136,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         refreshWorkspaces(silent: true),
         loadProfile(silent: true),
       ]);
+      if (pendingInvitationSecret != null) {
+        await claimPortableInvitation(pendingInvitationSecret!);
+      }
     });
   }
 
@@ -152,6 +178,8 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     profile = null;
     workspaceMembers = null;
     pendingInvitations = [];
+    conflicts = [];
+    await realtime.leaveDiagram();
     notifyListeners();
   }
 
@@ -283,6 +311,69 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  Future<PortableInvitationModel> createPortableInvitation({
+    required WorkspaceRole role,
+    required int expiresInHours,
+    String? email,
+  }) async {
+    final workspace = activeWorkspace;
+    if (workspace == null || !workspace.roleValue.canManageMembers) {
+      throw StateError('Solo el propietario puede crear invitaciones.');
+    }
+    final result = await api.createPortableInvitation(
+      workspace.id,
+      role: role,
+      expiresInHours: expiresInHours,
+      email: email,
+    );
+    latestPortableInvitation = result;
+    pendingInvitations = [result.invitation, ...pendingInvitations];
+    notifyListeners();
+    return result;
+  }
+
+  Future<ClaimedInvitationModel> claimPortableInvitation(String secret) async {
+    if (!signedIn && api.token == null) {
+      // Injected test clients can exercise the same contract without a login flow.
+      if (!_apiInjected) {
+        pendingInvitationSecret = secret;
+        notifyListeners();
+        throw StateError('Inicia sesión para aceptar la invitación.');
+      }
+    }
+    final result = await api.claimPortableInvitation(secret);
+    pendingInvitationSecret = null;
+    if (online) await refreshWorkspaces(silent: true);
+    notifyListeners();
+    return result;
+  }
+
+  Future<void> revokeInvitation(WorkspaceInvitationModel invitation) async {
+    final workspace = activeWorkspace;
+    if (workspace == null || !workspace.roleValue.canManageMembers) {
+      throw StateError('Solo el propietario puede revocar invitaciones.');
+    }
+    await api.revokeInvitation(workspace.id, invitation.id);
+    pendingInvitations = pendingInvitations
+        .where((item) => item.id != invitation.id)
+        .toList();
+    notifyListeners();
+  }
+
+  Future<void> _handleInvitationSecret(String secret) async {
+    if (!signedIn) {
+      pendingInvitationSecret = secret;
+      notifyListeners();
+      return;
+    }
+    try {
+      await claimPortableInvitation(secret);
+    } catch (exception) {
+      error = exception.toString();
+      notifyListeners();
+    }
+  }
+
   Future<void> updateMemberRole(
     WorkspaceMemberModel member,
     WorkspaceRole role,
@@ -396,6 +487,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       if (online) {
         activeDiagram = await api.getDiagram(id);
         await store.saveJson('diagram:$id', activeDiagram!.toJson());
+        await _connectRealtime(id);
       } else {
         final cached = await store.readJson('diagram:$id');
         activeDiagram = cached == null ? null : DiagramModel.fromJson(cached);
@@ -406,6 +498,67 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
     }
   }
+
+  Future<void> loadConflicts() async {
+    final diagram = activeDiagram;
+    if (diagram == null || !online) return;
+    conflicts = await api.getDiagramConflicts(diagram.id);
+    notifyListeners();
+  }
+
+  Future<void> resolveConflict(
+    SyncConflict conflict,
+    ConflictChoice choice, {
+    Map<String, dynamic>? merged,
+  }) async {
+    final workspace = activeWorkspace;
+    if (workspace == null || !workspace.roleValue.canEditDiagrams) {
+      throw StateError('El rol VIEWER no puede resolver conflictos.');
+    }
+    final proposal = ConflictMerge.resolve(conflict, choice, merged: merged);
+    await api.resolveDiagramConflict(conflict.id, proposal.data);
+    if (conflict.deviceId != null && conflict.clientSequence != null) {
+      await syncCoordinator.discardConfirmedConflict(
+        conflict.deviceId!,
+        conflict.clientSequence!,
+      );
+    }
+    activeDiagram = await api.getDiagram(conflict.diagramId);
+    await store.saveJson(
+      'diagram:${conflict.diagramId}',
+      activeDiagram!.toJson(),
+    );
+    conflicts = conflicts.where((item) => item.id != conflict.id).toList();
+    error = null;
+    notifyListeners();
+  }
+
+  Future<void> _connectRealtime(String diagramId) async {
+    final token = _token ?? api.token;
+    if (token == null || token.isEmpty) return;
+    await realtime.connect(apiBaseUrl: api.baseUrl, token: token);
+    await realtime.joinDiagram(diagramId);
+  }
+
+  void _handleRemoteDiagramEvent(Map<String, dynamic> event) {
+    final diagram = activeDiagram;
+    if (diagram == null) return;
+    final changes = event['changes'] as Map?;
+    final nextData = event['afterData'] as Map? ?? changes?['data'] as Map?;
+    if (nextData == null) return;
+    final version =
+        event['resultVersion'] as int? ??
+        event['version'] as int? ??
+        diagram.version;
+    activeDiagram = diagram.copyWith(
+      data: Map<String, dynamic>.from(nextData),
+      version: version,
+    );
+    unawaited(store.saveJson('diagram:${diagram.id}', activeDiagram!.toJson()));
+    notifyListeners();
+  }
+
+  void _onRealtimeChanged() => notifyListeners();
 
   Future<AiReply> askAi(String message) async {
     final local = localAi.respond(message);
@@ -534,6 +687,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         );
         await store.saveJson('diagram:${diagram.id}', activeDiagram!.toJson());
       }
+      await realtime.publishConfirmed(applied.operation);
     }
     switch (syncCoordinator.status) {
       case SyncStatus.conflict:
@@ -574,6 +728,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     _connectivitySubscription?.cancel();
     syncCoordinator.removeListener(_onSyncChanged);
     syncCoordinator.dispose();
+    realtime.removeListener(_onRealtimeChanged);
+    realtime.dispose();
+    unawaited(invitationLinks.dispose());
     super.dispose();
   }
 }

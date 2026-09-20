@@ -108,4 +108,16 @@ void main() {
     expect(store.saved, [operation]);
     expect(coordinator.status, SyncStatus.conflict);
   });
+
+  test('removes only the operation explicitly resolved by the user', () async {
+    final second = operation.copyWith(id: 'android-1:2', clientSequence: 2);
+    final store = MemorySyncStore([operation, second]);
+    final coordinator = SyncCoordinator(store: store, apply: (_) async => {});
+    await coordinator.start();
+
+    await coordinator.discardConfirmedConflict('android-1', 1);
+
+    expect(store.saved, [second]);
+    expect(coordinator.pending, [second]);
+  });
 }

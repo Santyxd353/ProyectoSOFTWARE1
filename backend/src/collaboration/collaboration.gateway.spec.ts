@@ -28,6 +28,14 @@ describe('CollaborationGateway durable changes', () => {
     const collaboration = {
       joinDiagram: jest.fn().mockResolvedValue(true),
       handleDisconnect: jest.fn(),
+      getConnectedUsers: jest.fn().mockReturnValue([
+        {
+          socketId: 'socket-2',
+          userId: 'viewer-1',
+          userName: 'Ana',
+          diagramId: 'diagram-1',
+        },
+      ]),
     };
     const operations = {
       eventsAfter: jest.fn().mockResolvedValue([
@@ -61,6 +69,9 @@ describe('CollaborationGateway durable changes', () => {
     expect(result).toEqual({
       success: true,
       events: [{ id: 'operation-2', serverSequence: 2, resultVersion: 4 }],
+      presence: [
+        { socketId: 'socket-2', userId: 'viewer-1', userName: 'Ana' },
+      ],
     });
   });
 

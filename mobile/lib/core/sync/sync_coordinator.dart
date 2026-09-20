@@ -111,6 +111,23 @@ class SyncCoordinator extends ChangeNotifier {
     return SyncReport(applied: applied, conflictId: conflictId);
   }
 
+  Future<void> discardConfirmedConflict(
+    String deviceId,
+    int clientSequence,
+  ) async {
+    final next = _pending
+        .where(
+          (item) =>
+              item.deviceId != deviceId ||
+              item.clientSequence != clientSequence,
+        )
+        .toList();
+    await store.saveQueue(next);
+    _pending = next;
+    _status = _pending.isEmpty ? SyncStatus.synced : SyncStatus.pending;
+    notifyListeners();
+  }
+
   Future<void> _scheduleRetry(SyncOperation operation) async {
     final attempts = operation.attemptCount + 1;
     final seconds = min(300, pow(2, attempts).toInt());

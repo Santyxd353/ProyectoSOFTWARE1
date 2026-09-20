@@ -149,6 +149,41 @@ class ApiClient {
         .toList();
   }
 
+  Future<PortableInvitationModel> createPortableInvitation(
+    String workspaceId, {
+    required WorkspaceRole role,
+    int expiresInHours = 168,
+    String? email,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/workspaces/$workspaceId/invitations/portable'),
+      headers: _headers,
+      body: jsonEncode({
+        'role': role.wire,
+        'expiresInHours': expiresInHours,
+        if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
+      }),
+    );
+    return PortableInvitationModel.fromJson(_decode(response));
+  }
+
+  Future<ClaimedInvitationModel> claimPortableInvitation(String secret) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/workspaces/invitations/claim'),
+      headers: _headers,
+      body: jsonEncode({'secret': secret.trim()}),
+    );
+    return ClaimedInvitationModel.fromJson(_decode(response));
+  }
+
+  Future<void> revokeInvitation(String workspaceId, String invitationId) async {
+    final response = await _client.delete(
+      Uri.parse('$baseUrl/workspaces/$workspaceId/invitations/$invitationId'),
+      headers: _headers,
+    );
+    _decode(response);
+  }
+
   Future<WorkspaceMemberModel> updateMemberRole(
     String workspaceId,
     String memberId,
@@ -233,6 +268,31 @@ class ApiClient {
         'baseData': baseData,
         'changes': {'type': 'full_update', 'data': data},
       }),
+    );
+    return _decode(response);
+  }
+
+  Future<List<SyncConflict>> getDiagramConflicts(String diagramId) async {
+    final response = await _client.get(
+      Uri.parse('$baseUrl/diagrams/$diagramId/conflicts'),
+      headers: _headers,
+    );
+    return _decodeList(response)
+        .map(
+          (item) =>
+              SyncConflict.fromJson(Map<String, dynamic>.from(item as Map)),
+        )
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> resolveDiagramConflict(
+    String conflictId,
+    Map<String, dynamic> resolution,
+  ) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/diagrams/conflicts/$conflictId/resolve'),
+      headers: _headers,
+      body: jsonEncode({'resolution': resolution}),
     );
     return _decode(response);
   }

@@ -118,6 +118,97 @@ class WorkspaceInvitationModel {
       );
 }
 
+class PortableInvitationModel {
+  const PortableInvitationModel({
+    required this.invitation,
+    required this.token,
+    required this.code,
+    required this.url,
+  });
+
+  final WorkspaceInvitationModel invitation;
+  final String token;
+  final String code;
+  final String url;
+
+  factory PortableInvitationModel.fromJson(Map<String, dynamic> json) =>
+      PortableInvitationModel(
+        invitation: WorkspaceInvitationModel.fromJson(
+          Map<String, dynamic>.from(json['invitation'] as Map),
+        ),
+        token: json['token'] as String,
+        code: json['code'] as String,
+        url: json['url'] as String,
+      );
+}
+
+class ClaimedInvitationModel {
+  const ClaimedInvitationModel({
+    required this.workspaceId,
+    required this.alreadyAccepted,
+    required this.alreadyMember,
+  });
+
+  final String workspaceId;
+  final bool alreadyAccepted;
+  final bool alreadyMember;
+
+  factory ClaimedInvitationModel.fromJson(Map<String, dynamic> json) =>
+      ClaimedInvitationModel(
+        workspaceId:
+            (json['invitation'] as Map)['workspaceId'] as String? ?? '',
+        alreadyAccepted: json['alreadyAccepted'] as bool? ?? false,
+        alreadyMember: json['alreadyMember'] as bool? ?? false,
+      );
+}
+
+class SyncConflict {
+  const SyncConflict({
+    required this.id,
+    required this.diagramId,
+    required this.baseVersion,
+    required this.base,
+    required this.local,
+    required this.remote,
+    required this.authorId,
+    required this.serverSequence,
+    required this.createdAt,
+    this.deviceId,
+    this.clientSequence,
+  });
+
+  final String id;
+  final String diagramId;
+  final int baseVersion;
+  final Map<String, dynamic> base;
+  final Map<String, dynamic> local;
+  final Map<String, dynamic> remote;
+  final String authorId;
+  final int serverSequence;
+  final String createdAt;
+  final String? deviceId;
+  final int? clientSequence;
+
+  factory SyncConflict.fromJson(Map<String, dynamic> json) {
+    final operation = Map<String, dynamic>.from(
+      json['operation'] as Map? ?? const {},
+    );
+    return SyncConflict(
+      id: json['id'] as String,
+      diagramId: json['diagramId'] as String,
+      baseVersion: json['baseVersion'] as int? ?? 1,
+      base: Map<String, dynamic>.from(json['baseData'] as Map? ?? const {}),
+      local: Map<String, dynamic>.from(json['localData'] as Map? ?? const {}),
+      remote: Map<String, dynamic>.from(json['remoteData'] as Map? ?? const {}),
+      authorId: operation['authorId'] as String? ?? '',
+      serverSequence: operation['serverSequence'] as int? ?? 0,
+      createdAt: operation['createdAt']?.toString() ?? '',
+      deviceId: operation['deviceId'] as String?,
+      clientSequence: operation['clientSequence'] as int?,
+    );
+  }
+}
+
 class WorkspaceModel {
   const WorkspaceModel({
     required this.id,

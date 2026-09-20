@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app_controller.dart';
 import '../../core/models/models.dart';
 import '../settings/app_text.dart';
+import 'invitations_screen.dart';
 
 Future<void> showCreateWorkspaceDialog(
   BuildContext context,
@@ -234,6 +235,18 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
               );
             }),
           if (workspace.roleValue.canManageMembers) ...[
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => InvitationsScreen(controller: controller),
+                ),
+              ),
+              icon: const Icon(Icons.group_add_outlined),
+              label: Text(
+                text('Crear o revocar invitaciones', 'Manage invitations'),
+              ),
+            ),
             const SizedBox(height: 28),
             Text(
               text('Invitaciones pendientes', 'Pending invitations'),
@@ -263,6 +276,11 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
                     ),
                     subtitle: Text(
                       '${invitation.role.wire}${invitation.expiresAt == null ? '' : ' · ${invitation.expiresAt}'}',
+                    ),
+                    trailing: IconButton(
+                      tooltip: text('Revocar', 'Revoke'),
+                      onPressed: () => controller.revokeInvitation(invitation),
+                      icon: const Icon(Icons.link_off_outlined),
                     ),
                   ),
                 ),
