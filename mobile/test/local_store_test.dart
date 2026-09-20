@@ -9,7 +9,12 @@ void main() {
     final store = LocalStore();
     await store.saveJson('workspace:1', {'id': '1', 'name': 'Local'});
     await store.saveQueue([
-      const SyncOperation(id: 'op-1', entityId: 'diagram-1', baseVersion: 4, payload: {'classes': []}),
+      const SyncOperation(
+        id: 'op-1',
+        entityId: 'diagram-1',
+        baseVersion: 4,
+        payload: {'classes': []},
+      ),
     ]);
 
     expect(await store.readJson('workspace:1'), {'id': '1', 'name': 'Local'});
@@ -29,5 +34,16 @@ void main() {
     expect(secondIdentity, firstIdentity);
     expect(firstSequence, 1);
     expect(secondSequence, 2);
+  });
+
+  test('persists language and theme preferences', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalStore();
+
+    await store.saveLocale('en');
+    await store.saveThemeMode('dark');
+
+    expect(await store.readLocale(), 'en');
+    expect(await store.readThemeMode(), 'dark');
   });
 }

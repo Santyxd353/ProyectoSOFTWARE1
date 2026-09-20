@@ -13,7 +13,8 @@ class ApiException implements Exception {
 }
 
 class ApiClient {
-  ApiClient({required this.baseUrl, http.Client? client}) : _client = client ?? http.Client();
+  ApiClient({required this.baseUrl, http.Client? client})
+    : _client = client ?? http.Client();
 
   String baseUrl;
   String? token;
@@ -28,17 +29,52 @@ class ApiClient {
     final response = await _client.post(
       Uri.parse('$baseUrl/auth/login'),
       headers: _headers,
-      body: jsonEncode({'email': email.trim().toLowerCase(), 'password': password}),
+      body: jsonEncode({
+        'email': email.trim().toLowerCase(),
+        'password': password,
+      }),
     );
     return _decode(response);
   }
 
+  Future<Map<String, dynamic>> register(
+    String name,
+    String email,
+    String password,
+  ) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/auth/register'),
+      headers: _headers,
+      body: jsonEncode({
+        'name': name.trim(),
+        'email': email.trim().toLowerCase(),
+        'password': password,
+      }),
+    );
+    return _decode(response);
+  }
+
+  Future<UserProfile> getProfile() async {
+    final response = await _client.get(
+      Uri.parse('$baseUrl/auth/profile'),
+      headers: _headers,
+    );
+    return UserProfile.fromJson(_decode(response));
+  }
+
   Future<List<WorkspaceModel>> getWorkspaces() async {
-    final response = await _client.get(Uri.parse('$baseUrl/workspaces'), headers: _headers);
+    final response = await _client.get(
+      Uri.parse('$baseUrl/workspaces'),
+      headers: _headers,
+    );
     final data = _decode(response);
     return [
-      ...(data['owned'] as List? ?? const []).map((item) =>
-          WorkspaceModel.fromJson(Map<String, dynamic>.from(item as Map), fallbackRole: 'OWNER')),
+      ...(data['owned'] as List? ?? const []).map(
+        (item) => WorkspaceModel.fromJson(
+          Map<String, dynamic>.from(item as Map),
+          fallbackRole: 'OWNER',
+        ),
+      ),
       ...(data['collaborated'] as List? ?? const []).map((item) {
         final map = Map<String, dynamic>.from(item as Map);
         final collaborators = map['collaborators'] as List? ?? const [];
@@ -51,16 +87,126 @@ class ApiClient {
   }
 
   Future<WorkspaceModel> getWorkspace(String id) async {
-    final response = await _client.get(Uri.parse('$baseUrl/workspaces/$id'), headers: _headers);
+    final response = await _client.get(
+      Uri.parse('$baseUrl/workspaces/$id'),
+      headers: _headers,
+    );
     return WorkspaceModel.fromJson(_decode(response));
   }
 
+  Future<WorkspaceModel> createWorkspace(
+    String name,
+    String description,
+  ) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/workspaces'),
+      headers: _headers,
+      body: jsonEncode({
+        'name': name.trim(),
+        'description': description.trim(),
+      }),
+    );
+    return WorkspaceModel.fromJson(_decode(response), fallbackRole: 'OWNER');
+  }
+
+  Future<WorkspaceModel> updateWorkspace(
+    String id, {
+    String? name,
+    String? description,
+  }) async {
+    final response = await _client.patch(
+      Uri.parse('$baseUrl/workspaces/$id'),
+      headers: _headers,
+      body: jsonEncode({
+        if (name != null) 'name': name.trim(),
+        if (description != null) 'description': description.trim(),
+      }),
+    );
+    return WorkspaceModel.fromJson(_decode(response), fallbackRole: 'OWNER');
+  }
+
+  Future<WorkspaceMembersModel> getWorkspaceMembers(String id) async {
+    final response = await _client.get(
+      Uri.parse('$baseUrl/workspaces/$id/members'),
+      headers: _headers,
+    );
+    return WorkspaceMembersModel.fromJson(_decode(response));
+  }
+
+  Future<List<WorkspaceInvitationModel>> getWorkspaceInvitations(
+    String id,
+  ) async {
+    final response = await _client.get(
+      Uri.parse('$baseUrl/workspaces/$id/invitations'),
+      headers: _headers,
+    );
+    return _decodeList(response)
+        .map(
+          (item) => WorkspaceInvitationModel.fromJson(
+            Map<String, dynamic>.from(item as Map),
+          ),
+        )
+        .toList();
+  }
+
+  Future<WorkspaceMemberModel> updateMemberRole(
+    String workspaceId,
+    String memberId,
+    WorkspaceRole role,
+  ) async {
+    final response = await _client.patch(
+      Uri.parse('$baseUrl/workspaces/$workspaceId/members/$memberId'),
+      headers: _headers,
+      body: jsonEncode({'role': role.wire}),
+    );
+    return WorkspaceMemberModel.fromJson(_decode(response));
+  }
+
+  Future<void> removeMember(String workspaceId, String memberId) async {
+    final response = await _client.delete(
+      Uri.parse('$baseUrl/workspaces/$workspaceId/members/$memberId'),
+      headers: _headers,
+    );
+    _decode(response);
+  }
+
   Future<DiagramModel> getDiagram(String id) async {
-    final response = await _client.get(Uri.parse('$baseUrl/diagrams/$id'), headers: _headers);
+    final response = await _client.get(
+      Uri.parse('$baseUrl/diagrams/$id'),
+      headers: _headers,
+    );
     return DiagramModel.fromJson(_decode(response));
   }
 
-  Future<DiagramModel> updateDiagram(String id, Map<String, dynamic> data) async {
+  Future<DiagramModel> createDiagram(String workspaceId, String name) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/diagrams'),
+      headers: _headers,
+      body: jsonEncode({'workspaceId': workspaceId, 'name': name.trim()}),
+    );
+    return DiagramModel.fromJson(_decode(response));
+  }
+
+  Future<DiagramModel> archiveDiagram(String id) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/diagrams/$id/archive'),
+      headers: _headers,
+    );
+    return DiagramModel.fromJson(_decode(response));
+  }
+
+  Future<DiagramModel> restoreDiagram(String id) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/diagrams/$id/restore'),
+      headers: _headers,
+    );
+    return DiagramModel.fromJson(_decode(response));
+  }
+
+  Future<DiagramModel> updateDiagram(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
     final response = await _client.put(
       Uri.parse('$baseUrl/diagrams/$id'),
       headers: _headers,
@@ -101,11 +247,30 @@ class ApiClient {
   }
 
   Map<String, dynamic> _decode(http.Response response) {
-    final decoded = response.body.isEmpty ? <String, dynamic>{} : jsonDecode(response.body);
+    final decoded = response.body.isEmpty
+        ? <String, dynamic>{}
+        : jsonDecode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final message = decoded is Map ? decoded['message'] : null;
-      throw ApiException(message?.toString() ?? 'Error ${response.statusCode}', response.statusCode);
+      throw ApiException(
+        message?.toString() ?? 'Error ${response.statusCode}',
+        response.statusCode,
+      );
     }
     return Map<String, dynamic>.from(decoded as Map);
+  }
+
+  List<dynamic> _decodeList(http.Response response) {
+    final decoded = response.body.isEmpty
+        ? <dynamic>[]
+        : jsonDecode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final message = decoded is Map ? decoded['message'] : null;
+      throw ApiException(
+        message?.toString() ?? 'Error ${response.statusCode}',
+        response.statusCode,
+      );
+    }
+    return List<dynamic>.from(decoded as List);
   }
 }
