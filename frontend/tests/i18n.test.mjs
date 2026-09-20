@@ -121,6 +121,22 @@ test('catalogs include the documented project administration flows', () => {
   }
 });
 
+test('catalogs include portable invitation controls', () => {
+  const requiredKeys = [
+    'workspace.portableInvite.title', 'workspace.portableInvite.description',
+    'workspace.portableInvite.email', 'workspace.portableInvite.role',
+    'workspace.portableInvite.expiry', 'workspace.portableInvite.create',
+    'workspace.portableInvite.link', 'workspace.portableInvite.code',
+    'workspace.portableInvite.copy', 'workspace.portableInvite.copied',
+    'workspace.portableInvite.error', 'workspace.portableInvite.anonymous',
+  ];
+
+  for (const key of requiredKeys) {
+    assert.equal(typeof enModule.en?.[key], 'string', `missing English key: ${key}`);
+    assert.equal(typeof esModule.es?.[key], 'string', `missing Spanish key: ${key}`);
+  }
+});
+
 test('catalogs include XMI interoperability controls', () => {
   for (const key of [
     'interchange.import', 'interchange.importing', 'interchange.importSuccess',

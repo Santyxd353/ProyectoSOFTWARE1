@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { AuthResponse, LoginData, RegisterData } from '@/types/auth';
-import { Role, Workspace, CreateWorkspaceData, InviteResult, WorkspaceInvitation, WorkspaceMembersResponse, WorkspaceQuery } from '@/types/workspace';
+import { Role, Workspace, CreateWorkspaceData, InviteResult, PortableInvitationResult, WorkspaceInvitation, WorkspaceMembersResponse, WorkspaceQuery } from '@/types/workspace';
 import { Diagram } from '@/types/uml';
 import {
   ReviewComment,
@@ -133,6 +133,26 @@ export const workspaceAPI = {
 
   getInvitations: async (workspaceId: string): Promise<WorkspaceInvitation[]> => {
     const response = await api.get(`/workspaces/${workspaceId}/invitations`);
+    return response.data;
+  },
+
+  createPortableInvitation: async (
+    workspaceId: string,
+    data: {
+      role: Role.EDITOR | Role.VIEWER;
+      expiresInHours?: number;
+      email?: string;
+    },
+  ): Promise<PortableInvitationResult> => {
+    const response = await api.post(
+      `/workspaces/${workspaceId}/invitations/portable`,
+      data,
+    );
+    return response.data;
+  },
+
+  claimPortableInvitation: async (secret: string) => {
+    const response = await api.post('/workspaces/invitations/claim', { secret });
     return response.data;
   },
 

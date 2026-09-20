@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, Mail, Shield, Trash2, XCircle } from 'lucide-react';
+import { Copy, Link2, Loader2, Mail, Shield, Trash2, XCircle } from 'lucide-react';
 import { workspaceAPI } from '@/lib/api';
 import { repositoryCapabilities } from '@/lib/repository-capabilities';
 import {
@@ -9,6 +9,7 @@ import {
   WorkspaceMember,
   WorkspaceMembersResponse,
   WorkspaceInvitation,
+  PortableInvitationResult,
 } from '@/types/workspace';
 import { useI18n } from '@/components/i18n/I18nProvider';
 
@@ -24,6 +25,10 @@ export default function MemberManagement({ workspaceId, role, onWorkspaceChanged
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
   const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
+  const [portableRole, setPortableRole] = useState<Role.EDITOR | Role.VIEWER>(Role.VIEWER);
+  const [portableExpiry, setPortableExpiry] = useState('168');
+  const [portableEmail, setPortableEmail] = useState('');
+  const [portableResult, setPortableResult] = useState<PortableInvitationResult | null>(null);
   const { canManageMembers } = repositoryCapabilities(role, false);
   const { t } = useI18n();
 
@@ -90,7 +95,8 @@ export default function MemberManagement({ workspaceId, role, onWorkspaceChanged
   };
 
   const revokeInvitation = async (invitation: WorkspaceInvitation) => {
-    if (!window.confirm(t('workspace.invitations.revokeConfirm', { email: invitation.email }))) return;
+    const recipient = invitation.email || t('workspace.portableInvite.anonymous');
+    if (!window.confirm(t('workspace.invitations.revokeConfirm', { email: recipient }))) return;
     setBusyId(invitation.id);
     setError('');
     setStatus('');
@@ -103,6 +109,31 @@ export default function MemberManagement({ workspaceId, role, onWorkspaceChanged
     } finally {
       setBusyId('');
     }
+  };
+
+  const createPortableInvitation = async () => {
+    setBusyId('portable');
+    setError('');
+    setStatus('');
+    setPortableResult(null);
+    try {
+      const result = await workspaceAPI.createPortableInvitation(workspaceId, {
+        role: portableRole,
+        expiresInHours: Number(portableExpiry),
+        ...(portableEmail.trim() ? { email: portableEmail.trim() } : {}),
+      });
+      setPortableResult(result);
+      await load();
+    } catch (requestError: any) {
+      setError(requestError.response?.data?.message || t('workspace.portableInvite.error'));
+    } finally {
+      setBusyId('');
+    }
+  };
+
+  const copySecret = async (value: string) => {
+    await navigator.clipboard.writeText(value);
+    setStatus(t('workspace.portableInvite.copied'));
   };
 
   if (!data) {
@@ -135,6 +166,88 @@ export default function MemberManagement({ workspaceId, role, onWorkspaceChanged
           </label>
         )}
       </section>
+      {canManageMembers && (
+        <section className="rounded-lg border border-border bg-card p-5" aria-labelledby="portable-invite-title">
+          <div className="flex items-start gap-3">
+            <Link2 size={20} className="mt-0.5 text-primary" />
+            <div>
+              <h2 id="portable-invite-title" className="text-lg font-semibold text-card-foreground">
+                {t('workspace.portableInvite.title')}
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">{t('workspace.portableInvite.description')}</p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <label className="text-sm font-medium text-foreground" htmlFor="portable-role">
+              {t('workspace.portableInvite.role')}
+              <select
+                id="portable-role"
+                value={portableRole}
+                onChange={(event) => setPortableRole(event.target.value as Role.EDITOR | Role.VIEWER)}
+                className="mt-1 block min-h-11 w-full rounded-md border border-input bg-background"
+              >
+                <option value={Role.VIEWER}>{t('roles.viewer')}</option>
+                <option value={Role.EDITOR}>{t('roles.editor')}</option>
+              </select>
+            </label>
+            <label className="text-sm font-medium text-foreground" htmlFor="portable-expiry">
+              {t('workspace.portableInvite.expiry')}
+              <select
+                id="portable-expiry"
+                value={portableExpiry}
+                onChange={(event) => setPortableExpiry(event.target.value)}
+                className="mt-1 block min-h-11 w-full rounded-md border border-input bg-background"
+              >
+                <option value="24">24 h</option>
+                <option value="168">7 días / 7 days</option>
+                <option value="720">30 días / 30 days</option>
+              </select>
+            </label>
+            <label className="text-sm font-medium text-foreground" htmlFor="portable-email">
+              {t('workspace.portableInvite.email')}
+              <input
+                id="portable-email"
+                type="email"
+                value={portableEmail}
+                onChange={(event) => setPortableEmail(event.target.value)}
+                className="mt-1 block min-h-11 w-full rounded-md border border-input bg-background px-3"
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            disabled={busyId === 'portable'}
+            onClick={() => void createPortableInvitation()}
+            className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+          >
+            {busyId === 'portable' && <Loader2 size={17} className="animate-spin" />}
+            {t('workspace.portableInvite.create')}
+          </button>
+          {portableResult && (
+            <div className="mt-4 grid gap-3 rounded-md border border-border bg-muted/40 p-4 md:grid-cols-2">
+              {[
+                ['portable-link', t('workspace.portableInvite.link'), portableResult.url],
+                ['portable-code', t('workspace.portableInvite.code'), portableResult.code],
+              ].map(([id, label, value]) => (
+                <div key={id}>
+                  <label htmlFor={id} className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</label>
+                  <div className="mt-1 flex gap-2">
+                    <input id={id} readOnly value={value} className="min-h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-3 font-mono text-sm" />
+                    <button
+                      type="button"
+                      onClick={() => void copySecret(value)}
+                      aria-label={t('workspace.portableInvite.copy', { item: label })}
+                      className="flex h-11 w-11 items-center justify-center rounded-md border border-input text-foreground hover:bg-muted"
+                    >
+                      <Copy size={17} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="overflow-hidden rounded-lg border border-border bg-card">
         <ul className="divide-y divide-border">
@@ -195,14 +308,17 @@ export default function MemberManagement({ workspaceId, role, onWorkspaceChanged
               {invitations.map((invitation) => (
                 <li key={invitation.id} className="flex items-center justify-between gap-3 py-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{invitation.email}</p>
-                    <p className="text-xs text-muted-foreground">{invitation.role === Role.EDITOR ? t('roles.editor') : t('roles.viewer')}</p>
+                    <p className="truncate text-sm font-medium text-foreground">{invitation.email || t('workspace.portableInvite.anonymous')}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {invitation.role === Role.EDITOR ? t('roles.editor') : t('roles.viewer')}
+                      {invitation.expiresAt ? ` · ${new Date(invitation.expiresAt).toLocaleString()}` : ''}
+                    </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => void revokeInvitation(invitation)}
                     disabled={busyId === invitation.id}
-                    aria-label={t('workspace.invitations.revoke', { email: invitation.email })}
+                    aria-label={t('workspace.invitations.revoke', { email: invitation.email || t('workspace.portableInvite.anonymous') })}
                     className="flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
                   >
                     {busyId === invitation.id ? <Loader2 size={17} className="animate-spin" /> : <XCircle size={17} />}

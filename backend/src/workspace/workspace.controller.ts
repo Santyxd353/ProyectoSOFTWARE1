@@ -8,6 +8,8 @@ import { UpdateRepositoryPolicyDto } from './dto/update-repository-policy.dto';
 import { InvitationService } from '../invitation/invitation.service';
 import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
 import { TransferOwnershipDto } from './dto/transfer-ownership.dto';
+import { CreatePortableInvitationDto } from '../invitation/dto/create-portable-invitation.dto';
+import { ClaimPortableInvitationDto } from '../invitation/dto/claim-portable-invitation.dto';
 
 class CreateWorkspaceDto {
   @IsString()
@@ -109,6 +111,29 @@ export class WorkspaceController {
       body.email,
       body.role ?? Role.VIEWER,
     );
+  }
+
+  @Post(':id/invitations/portable')
+  createPortableInvitation(
+    @Param('id') id: string,
+    @Body() body: CreatePortableInvitationDto,
+    @Request() req,
+  ) {
+    return this.invitations.createPortable(
+      id,
+      req.user.userId,
+      body.role ?? Role.VIEWER,
+      body.expiresInHours,
+      body.email,
+    );
+  }
+
+  @Post('invitations/claim')
+  claimPortableInvitation(
+    @Body() body: ClaimPortableInvitationDto,
+    @Request() req,
+  ) {
+    return this.invitations.claimPortable(req.user.userId, body.secret);
   }
 
   @Get(':id/invitations')

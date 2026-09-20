@@ -112,21 +112,25 @@ enum InvitationStatus {
 }
 
 model WorkspaceInvitation {
-  id           String           @id @default(cuid())
-  workspaceId  String
-  email        String
-  role         Role             @default(VIEWER)
-  status       InvitationStatus @default(PENDING)
-  invitedById  String
-  acceptedById String?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  id            String           @id @default(cuid())
+  workspaceId   String
+  email         String?
+  role          Role             @default(VIEWER)
+  status        InvitationStatus @default(PENDING)
+  invitedById   String
+  acceptedById  String?
+  tokenHash     String?          @unique
+  shortCodeHash String?          @unique
+  expiresAt     DateTime?
+  claimedAt     DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
   workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   invitedBy  User      @relation("InvitationAuthor", fields: [invitedById], references: [id], onDelete: Cascade)
   acceptedBy User?     @relation("InvitationRecipient", fields: [acceptedById], references: [id], onDelete: SetNull)
 
-  @@unique([workspaceId, email])
+  @@index([workspaceId, status])
   @@index([email, status])
   @@map("workspace_invitations")
 }
@@ -432,7 +436,7 @@ model AuditEvent {
   createdAt   DateTime    @default(now())
 
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  actor     User      @relation("AuditActor", fields: [actorId], references: [id], onDelete: Cascade)
+  actor     User       @relation("AuditActor", fields: [actorId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, createdAt])
   @@index([entityType, entityId])

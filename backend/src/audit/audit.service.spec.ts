@@ -70,7 +70,11 @@ describe('AuditService', () => {
     expect(schema).toContain('archivedAt DateTime?');
     expect(schema).toContain('enum InvitationStatus');
     expect(schema).toContain('model WorkspaceInvitation');
-    expect(schema).toContain('@@unique([workspaceId, email])');
+    expect(schema).toMatch(/email\s+String\?/);
+    expect(schema).toMatch(/tokenHash\s+String\?\s+@unique/);
+    expect(schema).toMatch(/shortCodeHash\s+String\?\s+@unique/);
+    expect(schema).toMatch(/expiresAt\s+DateTime\?/);
+    expect(schema).toContain('@@index([workspaceId, status])');
     for (const action of [
       'WORKSPACE_UPDATED',
       'WORKSPACE_OWNERSHIP_TRANSFERRED',

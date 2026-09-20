@@ -63,11 +63,20 @@ export interface WorkspaceQuery {
 export interface WorkspaceInvitation {
   id: string;
   workspaceId: string;
-  email: string;
+  email: string | null;
   role: Role.EDITOR | Role.VIEWER;
   status: 'PENDING' | 'ACCEPTED' | 'REVOKED';
+  expiresAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PortableInvitationResult {
+  kind: 'portable';
+  invitation: WorkspaceInvitation;
+  token: string;
+  code: string;
+  url: string;
 }
 
 export type InviteResult =
