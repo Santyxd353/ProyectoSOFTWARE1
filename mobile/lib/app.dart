@@ -4,6 +4,10 @@ import 'package:speech_to_text/speech_to_text.dart';
 
 import 'app_controller.dart';
 import 'features/auth/register_screen.dart';
+import 'features/diagrams/editor/class_form.dart';
+import 'features/diagrams/editor/relation_form.dart';
+import 'features/diagrams/editor/uml_canvas.dart';
+import 'features/diagrams/editor/uml_canvas_controller.dart';
 import 'features/settings/app_text.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/workspaces/workspace_management.dart';
@@ -435,10 +439,24 @@ class DiagramScreen extends StatefulWidget {
 }
 
 class _DiagramScreenState extends State<DiagramScreen> {
+  late final UmlCanvasController canvas;
+  bool dirty = false;
+
   @override
   void initState() {
     super.initState();
+    canvas = UmlCanvasController(
+      widget.controller.activeDiagram!.data,
+      onChanged: (_) {
+        if (mounted) setState(() => dirty = true);
+      },
+    );
+    canvas.addListener(_canvasRefresh);
     widget.controller.addListener(refresh);
+  }
+
+  void _canvasRefresh() {
+    if (mounted) setState(() {});
   }
 
   void refresh() {
@@ -448,13 +466,184 @@ class _DiagramScreenState extends State<DiagramScreen> {
   @override
   void dispose() {
     widget.controller.removeListener(refresh);
+    canvas.removeListener(_canvasRefresh);
+    canvas.dispose();
     super.dispose();
+  }
+
+  List<Map<String, dynamic>> get _classes =>
+      (canvas.model['classes'] as List? ?? const [])
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+
+  List<Map<String, dynamic>> get _relations =>
+      (canvas.model['relations'] as List? ?? const [])
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+
+  Future<void> _addClass() async {
+    final temporary = <String, dynamic>{
+      'id': 'new',
+      'name': '',
+      'attributes': <dynamic>[],
+      'methods': <dynamic>[],
+    };
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) => ClassForm(
+        initialClass: temporary,
+        onSave: (value) {
+          final index = _classes.length;
+          canvas.createClass(
+            value['name'].toString(),
+            Offset(80 + (index % 3) * 260, 80 + (index ~/ 3) * 220),
+          );
+          final created = _classes.last;
+          canvas.selectClass(created['id'].toString());
+          canvas.replaceSelectedClassDetails(value);
+          Navigator.pop(sheetContext);
+        },
+      ),
+    );
+  }
+
+  Future<void> _editClass() async {
+    final id = canvas.selectedClassId;
+    if (id == null) return;
+    final selected = _classes.firstWhere((item) => item['id'] == id);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) => ClassForm(
+        initialClass: selected,
+        onSave: (value) {
+          canvas.replaceSelectedClassDetails(value);
+          Navigator.pop(sheetContext);
+        },
+      ),
+    );
+  }
+
+  Future<void> _deleteClass() async {
+    if (canvas.selectedClassId == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Eliminar clase'),
+        content: const Text(
+          'También se eliminarán las relaciones conectadas. Esta acción requiere guardar el diagrama.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) canvas.deleteSelectedClass();
+  }
+
+  Future<void> _editRelation([Map<String, dynamic>? relation]) async {
+    if (_classes.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Crea al menos dos clases para relacionarlas.'),
+        ),
+      );
+      return;
+    }
+    if (relation != null) canvas.selectRelation(relation['id'].toString());
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) => RelationForm(
+        classes: _classes,
+        initialRelation: relation,
+        onSave: (value) {
+          if (relation == null) {
+            canvas.createRelation(
+              sourceClassId: value['sourceClassId'].toString(),
+              targetClassId: value['targetClassId'].toString(),
+              type: value['type'].toString(),
+              name: value['name'].toString(),
+              sourceMultiplicity: value['sourceMultiplicity'].toString(),
+              targetMultiplicity: value['targetMultiplicity'].toString(),
+            );
+          } else {
+            canvas.updateSelectedRelation(
+              name: value['name'].toString(),
+              type: value['type'].toString(),
+              sourceMultiplicity: value['sourceMultiplicity'].toString(),
+              targetMultiplicity: value['targetMultiplicity'].toString(),
+            );
+          }
+          Navigator.pop(sheetContext);
+        },
+      ),
+    );
+  }
+
+  Future<void> _manageRelations() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, refreshSheet) => ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text('Relaciones', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
+            if (_relations.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('No hay relaciones.'),
+              ),
+            for (final relation in _relations)
+              Card(
+                child: ListTile(
+                  title: Text(
+                    relation['name']?.toString().isNotEmpty == true
+                        ? relation['name'].toString()
+                        : relation['type'].toString(),
+                  ),
+                  subtitle: Text(
+                    '${relation['sourceMultiplicity'] ?? '1'} → ${relation['targetMultiplicity'] ?? '1'}',
+                  ),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _editRelation(relation);
+                  },
+                  trailing: IconButton(
+                    tooltip: 'Eliminar relación',
+                    onPressed: () {
+                      canvas.selectRelation(relation['id'].toString());
+                      canvas.deleteSelectedRelation();
+                      refreshSheet(() {});
+                    },
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final diagram = widget.controller.activeDiagram!;
-    final classes = diagram.data['classes'] as List? ?? const [];
+    final editable =
+        widget.controller.activeWorkspace!.roleValue.canEditDiagrams;
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -472,30 +661,73 @@ class _DiagramScreenState extends State<DiagramScreen> {
             online: widget.controller.online,
             queued: widget.controller.pendingOperations.length,
           ),
+          if (editable)
+            IconButton(
+              onPressed: dirty
+                  ? () async {
+                      await widget.controller.saveDiagramData(canvas.model);
+                      if (mounted) setState(() => dirty = false);
+                    }
+                  : null,
+              tooltip: 'Guardar diagrama',
+              icon: const Icon(Icons.save_outlined),
+            ),
         ],
       ),
-      body: classes.isEmpty
-          ? const Center(
-              child: Text('No hay clases. Pídele a la IA que cree una.'),
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: classes.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
-              itemBuilder: (context, index) => ClassCard(
-                data: Map<String, dynamic>.from(classes[index] as Map),
+      body: UmlCanvas(controller: canvas, editable: editable),
+      bottomNavigationBar: editable
+          ? SafeArea(
+              top: false,
+              child: BottomAppBar(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    IconButton(
+                      onPressed: _addClass,
+                      tooltip: 'Agregar clase',
+                      icon: const Icon(Icons.add_box_outlined),
+                    ),
+                    IconButton(
+                      onPressed: () => _editRelation(),
+                      tooltip: 'Agregar relación',
+                      icon: const Icon(Icons.polyline_outlined),
+                    ),
+                    IconButton(
+                      onPressed: _manageRelations,
+                      tooltip: 'Administrar relaciones',
+                      icon: const Icon(Icons.account_tree_outlined),
+                    ),
+                    IconButton(
+                      onPressed: canvas.selectedClassId == null
+                          ? null
+                          : _editClass,
+                      tooltip: 'Editar clase seleccionada',
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                    IconButton(
+                      onPressed: canvas.selectedClassId == null
+                          ? null
+                          : _deleteClass,
+                      tooltip: 'Eliminar clase seleccionada',
+                      icon: const Icon(Icons.delete_outline),
+                    ),
+                  ],
+                ),
               ),
-            ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          useSafeArea: true,
-          builder: (_) => AiAssistantSheet(controller: widget.controller),
-        ),
-        icon: const Icon(Icons.auto_awesome),
-        label: const Text('IA'),
-      ),
+            )
+          : null,
+      floatingActionButton: editable
+          ? FloatingActionButton.extended(
+              onPressed: () => showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                builder: (_) => AiAssistantSheet(controller: widget.controller),
+              ),
+              icon: const Icon(Icons.auto_awesome),
+              label: const Text('IA'),
+            )
+          : null,
     );
   }
 }

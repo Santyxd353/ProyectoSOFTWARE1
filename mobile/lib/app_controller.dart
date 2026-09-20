@@ -417,6 +417,14 @@ class AppController extends ChangeNotifier {
     await _saveDiagram(data);
   }
 
+  Future<void> saveDiagramData(Map<String, dynamic> data) async {
+    final workspace = activeWorkspace;
+    if (workspace == null || !workspace.roleValue.canEditDiagrams) {
+      throw StateError('El rol actual no puede editar diagramas.');
+    }
+    await _saveDiagram(data);
+  }
+
   Future<void> _applyLocalCommand(LocalCommand command) async {
     if (activeDiagram == null) return;
     final data = Map<String, dynamic>.from(activeDiagram!.data);
