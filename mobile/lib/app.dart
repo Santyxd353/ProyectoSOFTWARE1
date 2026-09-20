@@ -10,6 +10,7 @@ import 'features/diagrams/editor/class_form.dart';
 import 'features/diagrams/editor/relation_form.dart';
 import 'features/diagrams/editor/uml_canvas.dart';
 import 'features/diagrams/editor/uml_canvas_controller.dart';
+import 'features/generation/artifact_hub_screen.dart';
 import 'features/settings/app_text.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/workspaces/workspace_management.dart';
@@ -697,6 +698,16 @@ class _DiagramScreenState extends State<DiagramScreen> {
               label: Text('${widget.controller.conflicts.length}'),
               child: const Icon(Icons.merge_type),
             ),
+          ),
+          IconButton(
+            tooltip: 'Código y portabilidad',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    ArtifactHubScreen(controller: widget.controller),
+              ),
+            ),
+            icon: const Icon(Icons.code_outlined),
           ),
           if (editable)
             IconButton(

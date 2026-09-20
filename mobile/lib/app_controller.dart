@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'core/ai/local_ai_engine.dart';
 import 'core/api/api_client.dart';
 import 'core/models/models.dart';
+import 'core/models/artifact_models.dart';
 import 'core/realtime/realtime_client.dart';
 import 'core/storage/local_store.dart';
 import 'core/sync/sync_coordinator.dart';
@@ -531,6 +532,60 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     conflicts = conflicts.where((item) => item.id != conflict.id).toList();
     error = null;
     notifyListeners();
+  }
+
+  Future<GeneratedProjectResult> generateProject(
+    GeneratedProjectType type,
+  ) async {
+    final workspace = activeWorkspace;
+    final diagram = activeDiagram;
+    if (workspace == null || diagram == null) {
+      throw StateError('No hay un diagrama activo.');
+    }
+    if (!workspace.roleValue.canEditDiagrams) {
+      throw StateError('El rol VIEWER no puede generar código.');
+    }
+    return api.generateProject(diagram.id, type);
+  }
+
+  Future<RevisionSummaryModel> restoreCodeRevision(
+    RevisionSummaryModel revision,
+  ) async {
+    final workspace = activeWorkspace;
+    if (workspace == null || !workspace.roleValue.canEditDiagrams) {
+      throw StateError('El rol VIEWER no puede restaurar revisiones.');
+    }
+    return api.restoreRevision(workspace.id, revision.id);
+  }
+
+  Future<ImportPreviewModel> previewDiagramImport({
+    required String name,
+    required InterchangeFormat format,
+    required String content,
+  }) async {
+    final workspace = activeWorkspace;
+    if (workspace == null || !workspace.roleValue.canEditDiagrams) {
+      throw StateError('El rol VIEWER no puede importar diagramas.');
+    }
+    return api.previewDiagramImport(
+      workspaceId: workspace.id,
+      name: name,
+      format: format,
+      content: content,
+    );
+  }
+
+  Future<DiagramModel> confirmDiagramImport(ImportPreviewModel preview) async {
+    final workspace = activeWorkspace;
+    if (workspace == null || !workspace.roleValue.canEditDiagrams) {
+      throw StateError('El rol VIEWER no puede confirmar importaciones.');
+    }
+    final diagram = await api.confirmDiagramImport(preview.token);
+    activeWorkspace = workspace.copyWith(
+      diagrams: [diagram, ...workspace.diagrams],
+    );
+    notifyListeners();
+    return diagram;
   }
 
   Future<void> _connectRealtime(String diagramId) async {

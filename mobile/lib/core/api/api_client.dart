@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/models.dart';
+import '../models/artifact_models.dart';
 
 class ApiException implements Exception {
   const ApiException(this.message, this.statusCode);
@@ -304,6 +305,191 @@ class ApiClient {
       body: jsonEncode({'diagramId': diagramId, 'message': message}),
     );
     return _decode(response);
+  }
+
+  Future<GeneratedProjectResult> generateProject(
+    String diagramId,
+    GeneratedProjectType type,
+  ) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/code-generation/${type.endpoint}/$diagramId'),
+      headers: _headers,
+      body: '{}',
+    );
+    return GeneratedProjectResult.fromJson(_decode(response));
+  }
+
+  Future<List<RevisionSummaryModel>> listRevisions(
+    String workspaceId, {
+    String? diagramId,
+  }) async {
+    final uri = Uri.parse('$baseUrl/workspaces/$workspaceId/revisions').replace(
+      queryParameters: diagramId == null ? null : {'diagramId': diagramId},
+    );
+    final response = await _client.get(uri, headers: _headers);
+    return _decodeList(response)
+        .map(
+          (item) => RevisionSummaryModel.fromJson(
+            Map<String, dynamic>.from(item as Map),
+          ),
+        )
+        .toList();
+  }
+
+  Future<List<RevisionFileModel>> getRevisionTree(
+    String workspaceId,
+    String revisionId,
+  ) async {
+    final response = await _client.get(
+      Uri.parse('$baseUrl/workspaces/$workspaceId/revisions/$revisionId/tree'),
+      headers: _headers,
+    );
+    return _decodeList(response)
+        .map(
+          (item) => RevisionFileModel.fromJson(
+            Map<String, dynamic>.from(item as Map),
+          ),
+        )
+        .toList();
+  }
+
+  Future<RevisionFileModel> readRevisionFile(
+    String workspaceId,
+    String revisionId,
+    String fileId,
+  ) async {
+    final response = await _client.get(
+      Uri.parse(
+        '$baseUrl/workspaces/$workspaceId/revisions/$revisionId/files/$fileId',
+      ),
+      headers: _headers,
+    );
+    return RevisionFileModel.fromJson(_decode(response));
+  }
+
+  Future<List<ReviewCommentModel>> listRevisionComments(
+    String workspaceId,
+    String revisionId, {
+    String? fileId,
+  }) async {
+    final uri = Uri.parse(
+      '$baseUrl/workspaces/$workspaceId/revisions/$revisionId/comments',
+    ).replace(queryParameters: fileId == null ? null : {'fileId': fileId});
+    final response = await _client.get(uri, headers: _headers);
+    return _decodeList(response)
+        .map(
+          (item) => ReviewCommentModel.fromJson(
+            Map<String, dynamic>.from(item as Map),
+          ),
+        )
+        .toList();
+  }
+
+  Future<ReviewCommentModel> createRevisionComment(
+    String workspaceId,
+    String revisionId, {
+    required String fileId,
+    int? line,
+    required String body,
+  }) async {
+    final response = await _client.post(
+      Uri.parse(
+        '$baseUrl/workspaces/$workspaceId/revisions/$revisionId/comments',
+      ),
+      headers: _headers,
+      body: jsonEncode({'fileId': fileId, 'line': ?line, 'body': body}),
+    );
+    return ReviewCommentModel.fromJson(_decode(response));
+  }
+
+  Future<RevisionComparisonModel> compareRevisions(
+    String workspaceId,
+    String baseRevisionId,
+    String targetRevisionId, {
+    String? fileId,
+  }) async {
+    final uri = Uri.parse('$baseUrl/workspaces/$workspaceId/revisions/compare')
+        .replace(
+          queryParameters: {
+            'base': baseRevisionId,
+            'target': targetRevisionId,
+            'fileId': ?fileId,
+          },
+        );
+    final response = await _client.get(uri, headers: _headers);
+    return RevisionComparisonModel.fromJson(_decode(response));
+  }
+
+  Future<RevisionSummaryModel> restoreRevision(
+    String workspaceId,
+    String revisionId,
+  ) async {
+    final response = await _client.post(
+      Uri.parse(
+        '$baseUrl/workspaces/$workspaceId/revisions/$revisionId/restore',
+      ),
+      headers: _headers,
+      body: '{}',
+    );
+    return RevisionSummaryModel.fromJson(_decode(response));
+  }
+
+  Future<DownloadedFile> downloadGeneratedProject(String generatedCodeId) =>
+      _download('$baseUrl/code-generation/download/$generatedCodeId');
+
+  Future<DownloadedFile> downloadRevision(
+    String workspaceId,
+    String revisionId,
+  ) => _download(
+    '$baseUrl/workspaces/$workspaceId/revisions/$revisionId/download',
+  );
+
+  Future<DownloadedFile> exportDiagram(
+    String diagramId,
+    InterchangeFormat format,
+  ) => _download('$baseUrl/diagrams/$diagramId/export/${format.name}');
+
+  Future<ImportPreviewModel> previewDiagramImport({
+    required String workspaceId,
+    required String name,
+    required InterchangeFormat format,
+    required String content,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/diagrams/import/preview'),
+      headers: _headers,
+      body: jsonEncode({
+        'workspaceId': workspaceId,
+        'name': name,
+        'format': format.name,
+        'content': content,
+      }),
+    );
+    return ImportPreviewModel.fromJson(_decode(response));
+  }
+
+  Future<DiagramModel> confirmDiagramImport(String token) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/diagrams/import/confirm'),
+      headers: _headers,
+      body: jsonEncode({'token': token}),
+    );
+    return DiagramModel.fromJson(_decode(response));
+  }
+
+  Future<DownloadedFile> _download(String url) async {
+    final response = await _client.get(Uri.parse(url), headers: _headers);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _decode(response);
+    }
+    final disposition = response.headers['content-disposition'] ?? '';
+    final match = RegExp(r'filename="?([^";]+)').firstMatch(disposition);
+    return DownloadedFile(
+      filename: match?.group(1) ?? 'artifact.bin',
+      contentType:
+          response.headers['content-type'] ?? 'application/octet-stream',
+      bytes: response.bodyBytes,
+    );
   }
 
   Map<String, dynamic> _decode(http.Response response) {
