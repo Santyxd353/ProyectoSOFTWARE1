@@ -6,7 +6,7 @@ La plataforma móvil soportada en esta etapa es exclusivamente Android; no se in
 
 ## Arquitectura de IA híbrida
 
-- El motor compacto incluido en la aplicación interpreta sin internet órdenes básicas como crear clases, agregar atributos y consultar ayuda.
+- Sin internet, un intérprete básico incluido en la aplicación permite crear clases, agregar atributos y consultar ayuda. FunctionGemma 270M es opcional: se descarga o importa desde **Configuración > IA sin conexión** y no forma parte de la APK.
 - El reconocimiento y la síntesis de voz se solicitan en modo local al servicio disponible en el dispositivo Android.
 - Las solicitudes complejas se derivan a la IA del backend únicamente cuando existe conexión.
 - Ningún cambio propuesto por la IA remota se aplica sin confirmación del usuario.

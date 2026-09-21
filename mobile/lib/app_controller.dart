@@ -636,7 +636,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       final response = await api.chat(activeDiagram!.id, message);
       return AiReply(
         message: response['response'] as String? ?? 'Propuesta generada.',
-        engine: 'cloud',
+        engine: response['mode'] == 'cloud' ? 'cloud' : 'fallback',
         proposedModel: response['model'] == null
             ? null
             : Map<String, dynamic>.from(response['model'] as Map),

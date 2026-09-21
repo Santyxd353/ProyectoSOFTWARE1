@@ -73,13 +73,13 @@ Estado del alcance: los RF-01 a RF-32 y CU-01 a CU-25 tienen implementación loc
 
 ## Verificación ejecutada
 
-- PostgreSQL 18 local aislado en `127.0.0.1:55432`; seis migraciones aplicadas y `prisma migrate status` limpio.
+- PostgreSQL 18 local aislado en `127.0.0.1:55432`; siete migraciones aplicadas y `prisma migrate status` limpio.
 - API en `http://localhost:3002/api` y web en `http://localhost:3000` mediante `INICIAR_LOCAL.cmd`, sin Docker.
 - Recorrido HTTP real: registro, perfil, workspace, diagrama, operación durable, replay, XMI/JSON/ZIP, importación confirmada, Spring Boot, repositorio, OpenAPI/Postman, comentario, comparación, descarga, restauración y conflicto/resolución.
 - WebSocket real: JWT aceptado antes de eventos, unión a diagrama y reproducción de una operación persistida.
 - Backend: `npm test -- --runInBand --forceExit --silent` y `npm run build`.
 - Frontend: `npm test`, `npm run type-check` y `npm run build`.
-- Android: Flutter 3.35.7, `flutter analyze` sin observaciones, 65 pruebas Flutter y 2 recorridos de integración en emulador.
+- Android: Flutter 3.35.7, `flutter analyze` sin observaciones, 67 pruebas Flutter y 2 recorridos de integración en emulador.
 - El recorrido CU-21..CU-25 usó dos usuarios autenticados, invitación temporal, edición versionada, generación Spring Boot/Flutter, revisión/comentario/comparación/ZIP y reimportación XMI.
 - `npm audit` informa 0 vulnerabilidades en las 804 dependencias del backend y 0 en las 550 del frontend.
 - La APK se compiló, instaló y permaneció activa en Android 15 API 35 sin excepciones fatales.

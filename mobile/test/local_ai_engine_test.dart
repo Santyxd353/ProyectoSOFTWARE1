@@ -4,11 +4,12 @@ import 'package:proyecto_software1_mobile/core/ai/local_ai_engine.dart';
 import 'package:proyecto_software1_mobile/core/ai/local_model_runtime.dart';
 
 class FakeRuntime extends LocalModelRuntime {
-  FakeRuntime({required this.isReady, this.result})
+  FakeRuntime({required this.isReady, this.result, this.failure})
     : super(adapter: _UnusedAdapter());
 
   final bool isReady;
   final LocalInferenceResult? result;
+  final Object? failure;
 
   @override
   bool get ready => isReady;
@@ -17,7 +18,10 @@ class FakeRuntime extends LocalModelRuntime {
   Future<LocalInferenceResult> infer(
     String prompt, {
     String? diagramContext,
-  }) async => result!;
+  }) async {
+    if (failure != null) throw failure!;
+    return result!;
+  }
 }
 
 class _UnusedAdapter implements LocalModelAdapter {
@@ -98,4 +102,22 @@ void main() {
     expect(result.engine, AiEngine.fallback);
     expect(result.command?.type, LocalCommandType.createClass);
   });
+
+  test(
+    'does not execute fallback command after installed model fails',
+    () async {
+      final engine = LocalAiEngine(
+        runtime: FakeRuntime(
+          isReady: true,
+          failure: StateError('model unavailable in memory'),
+        ),
+      );
+
+      final result = await engine.respondHybrid('Crea una clase Cliente');
+
+      expect(result.command, isNull);
+      expect(result.engine, AiEngine.functionGemma);
+      expect(result.message.toLowerCase(), contains('no pudo'));
+    },
+  );
 }

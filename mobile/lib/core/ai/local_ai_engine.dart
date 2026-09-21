@@ -44,7 +44,11 @@ class LocalAiEngine {
         requiresConfirmation: result.requiresConfirmation,
       );
     } catch (_) {
-      return fallback;
+      return const LocalAiResult(
+        message:
+            'FunctionGemma no pudo procesar esta instrucción. El diagrama no cambió; revisa el modelo local o intenta de nuevo.',
+        engine: AiEngine.functionGemma,
+      );
     }
   }
 
