@@ -5,26 +5,23 @@ import { DiagramService } from '../diagram/diagram.service';
 import Anthropic from '@anthropic-ai/sdk';
 import * as fs from 'fs';
 import * as path from 'path';
+import { AiProviderConfig, resolveAiProviderConfig } from './ai-provider.config';
 
 @Injectable()
 export class AiChatService {
-  private anthropic: Anthropic;
-
-  // 🎯 Configuración de modelos de Claude - Cambia aquí para usar otro modelo
- private readonly CLAUDE_MODEL_MAIN = 'claude-sonnet-4-5-20250929';   // Modelo principal para tareas complejas
- private readonly CLAUDE_MODEL_FAST = 'claude-haiku-4-5-20251001';   // Modelo rápido / ligero   // Modelo rápido para tareas simples
- private readonly MaxTokens = 8192;  // Aumentado para análisis de imágenes complejas y diagramas grandes
- //El modelo principal al momento de la presentancion va a ser  'claude-sonnet-4-5-20250929'
+  private anthropic: Anthropic | null;
+  private readonly aiConfig: AiProviderConfig;
+  private readonly MaxTokens = 8192;
 
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
     private diagramService: DiagramService,
   ) {
-    const apiKey = this.configService.get('CLAUDE_API_KEY');
-    this.anthropic = new Anthropic({
-      apiKey: apiKey,
-    });
+    this.aiConfig = resolveAiProviderConfig(this.configService);
+    this.anthropic = this.aiConfig.apiKey
+      ? new Anthropic({ apiKey: this.aiConfig.apiKey })
+      : null;
   }
 
   async generateUMLFromPrompt(prompt: string, diagramId: string, userId: string) {
@@ -136,8 +133,9 @@ CASOS COMUNES DE N:N:
 - COMERCIO: Producto <-> Categoria (un producto puede estar en varias categorías)`;
 
       const message = await this.anthropic.messages.create({
-        model: this.CLAUDE_MODEL_MAIN,
+        model: this.aiConfig.mainModel,
         max_tokens: this.MaxTokens,
+        thinking: { type: 'disabled' },
         messages: [
           {
             role: 'user',
@@ -174,7 +172,7 @@ CASOS COMUNES DE N:N:
         umlModel = JSON.parse(cleanedResponse);
         console.log('✅ JSON parseado exitosamente. Clases:', umlModel.classes?.length);
       } catch (parseError) {
-        console.error('❌ Error parseando JSON de Gemini:', parseError.message);
+        console.error('❌ Error parseando JSON de Claude:', parseError.message);
         console.error('Respuesta limpia:', cleanedResponse.substring(0, 300));
         // Fallback to a template model
         console.log('🔄 Usando modelo de fallback para:', prompt);
@@ -201,7 +199,10 @@ CASOS COMUNES DE N:N:
       return {
         success: true,
         model: umlModel,
-        message: 'UML model generated successfully with Claude AI (Haiku)',
+        message: 'UML model generated successfully with Claude AI',
+        mode: 'cloud',
+        provider: this.aiConfig.provider,
+        modelName: this.aiConfig.mainModel,
       };
     } catch (error) {
       console.error('Error generating UML model with Claude:', error);
@@ -227,6 +228,8 @@ CASOS COMUNES DE N:N:
         success: true,
         model: fallbackModel,
         message: 'UML model generated using fallback (AI temporarily unavailable)',
+        mode: 'offline-fallback',
+        provider: 'local',
       };
     }
   }
@@ -434,6 +437,20 @@ CASOS COMUNES DE N:N:
   }
 
   async chatWithAI(message: string, diagramId?: string, userId?: string, imageBase64?: string) {
+    if (!this.aiConfig.configured) {
+      return {
+        response: `La IA en la nube no está configurada. Mientras agregas ANTHROPIC_API_KEY, puedo orientarte localmente sobre: "${message}".`,
+        suggestions: [
+          'Crear un sistema de farmacia',
+          'Diseñar un e-commerce',
+          'Modelar una biblioteca',
+          'Generar un sistema de blog',
+        ],
+        mode: 'offline-fallback',
+        provider: 'local',
+      };
+    }
+
     try {
       let diagramContext = null;
 
@@ -549,8 +566,9 @@ These are TWO separate relationships:
   Relationship 2: producto_catalogo to Catalogo with { "source": "1", "target": "*" }`;
 
         const claudeVisionMessage = await this.anthropic.messages.create({
-          model: this.CLAUDE_MODEL_MAIN,
+          model: this.aiConfig.mainModel,
           max_tokens: 12288,
+          thinking: { type: 'disabled' },
           messages: [
             {
               role: 'user',
@@ -679,6 +697,9 @@ These are TWO separate relationships:
             'Ajustar multiplicidades'
           ],
           model: umlModel,
+          mode: 'cloud',
+          provider: this.aiConfig.provider,
+          modelName: this.aiConfig.mainModel,
         };
       } catch (imageError: any) {
         const processingTime = Date.now() - imageProcessingStartTime;
@@ -734,6 +755,8 @@ ${imageError.stack}
             'Prueba describiendo el sistema con texto',
             'Verifica que la imagen no sea muy grande'
           ],
+          mode: 'offline-fallback',
+          provider: 'local',
         };
       }
     }
@@ -891,8 +914,9 @@ Relación: { type: "ManyToMany", sourceClassId: "cls_producto", targetClassId: "
 NOTA: El sistema creará automáticamente la tabla producto_categoria`;
 
         const claudeMessage = await this.anthropic.messages.create({
-          model: this.CLAUDE_MODEL_FAST,
+          model: this.aiConfig.fastModel,
           max_tokens: this.MaxTokens,
+          thinking: { type: 'disabled' },
           messages: [
             {
               role: 'user',
@@ -964,6 +988,9 @@ NOTA: El sistema creará automáticamente la tabla producto_categoria`;
             'Generar otro sistema'
           ],
           model: umlModel, // Include the generated model in the response
+          mode: 'cloud',
+          provider: this.aiConfig.provider,
+          modelName: this.aiConfig.fastModel,
         };
       } else {
         // Respuesta conversacional regular (sin generación de diagrama)
@@ -978,8 +1005,9 @@ Si el usuario pregunta sobre su diagrama, analiza el contexto actual.` : 'Sin co
 IMPORTANTE: Sé conciso pero informativo en tus respuestas.`;
 
         const claudeMessage = await this.anthropic.messages.create({
-          model: this.CLAUDE_MODEL_FAST,
+          model: this.aiConfig.fastModel,
           max_tokens: 2048,
+          thinking: { type: 'disabled' },
           messages: [
             {
               role: 'user',
@@ -1002,18 +1030,25 @@ IMPORTANTE: Sé conciso pero informativo en tus respuestas.`;
             'Modelar un sistema de biblioteca',
             'Generar un blog con posts y comentarios'
           ],
+          mode: 'cloud',
+          provider: this.aiConfig.provider,
+          modelName: this.aiConfig.fastModel,
         };
       }
     } catch (error) {
       console.error('Error in AI chat with Claude:', error);
       return {
-        response: `Entiendo que quieres saber sobre: "${message}". Déjame ayudarte a crear un diagrama UML para eso. Puedes pedirme que genere diagramas específicos o explicar conceptos UML.`,
+        response: this.aiConfig.configured
+          ? `La IA en la nube está temporalmente no disponible. Aun así, puedo orientarte localmente sobre: "${message}".`
+          : `La IA en la nube no está configurada. Mientras agregas ANTHROPIC_API_KEY, puedo orientarte localmente sobre: "${message}".`,
         suggestions: [
           'Crear un sistema de farmacia',
           'Diseñar un e-commerce',
           'Modelar una biblioteca',
           'Generar un sistema de blog'
         ],
+        mode: 'offline-fallback',
+        provider: 'local',
       };
     }
   }

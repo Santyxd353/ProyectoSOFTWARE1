@@ -1,6 +1,8 @@
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+. (Join-Path $PSScriptRoot '..\local-dev-common.ps1')
+
 $fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) "proyecto-software1-start-test-$([Guid]::NewGuid().ToString('N'))"
 
 try {
@@ -18,7 +20,7 @@ try {
     foreach ($application in @('backend', 'frontend')) {
         $lockPath = Join-Path $fixtureRoot "$application\package-lock.json"
         [IO.File]::WriteAllText($lockPath, "${application}-lock-v1")
-        $lockHash = (Get-FileHash -LiteralPath $lockPath -Algorithm SHA256).Hash
+        $lockHash = Get-Sha256FileHash -Path $lockPath
         [IO.File]::WriteAllText(
             (Join-Path $fixtureRoot "$application\node_modules\.puds-package-lock.sha256"),
             $lockHash

@@ -11,7 +11,7 @@ import { AuthorizationService } from '../authorization/authorization.service';
 import { RevisionDownload } from '../code-repository/code-repository.types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as archiver from 'archiver';
+import archiver = require('archiver');
 import { createWriteStream } from 'fs';
 import * as ejs from 'ejs';
 import { buildApiArtifacts } from './api-artifacts';

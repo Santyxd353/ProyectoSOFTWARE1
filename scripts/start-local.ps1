@@ -44,6 +44,7 @@ if ($requiresSetup) {
 
 $postgresBin = Resolve-PostgresBin
 $npx = Get-Command npx.cmd -ErrorAction Stop
+$npm = Get-Command npm.cmd -ErrorAction Stop
 $null = New-Item -ItemType Directory -Path $config.LogDirectory -Force
 $null = New-Item -ItemType Directory -Path $config.RuntimeDirectory -Force
 
@@ -70,7 +71,19 @@ try {
     Pop-Location
 }
 
-$npm = Get-Command npm.cmd -ErrorAction Stop
+Write-Host 'Compilando backend...'
+Push-Location (Join-Path $config.RepositoryRoot 'backend')
+try {
+    & $npm.Source run build
+    if ($LASTEXITCODE -ne 0) { throw 'La compilación del backend falló.' }
+    $backendEntry = Join-Path $config.RepositoryRoot 'backend\dist\main.js'
+    if (-not (Test-Path -LiteralPath $backendEntry)) {
+        throw "La compilación terminó sin generar $backendEntry."
+    }
+} finally {
+    Pop-Location
+}
+
 $services = @(
     [pscustomobject]@{
         Name = 'backend'

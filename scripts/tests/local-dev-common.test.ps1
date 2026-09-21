@@ -46,6 +46,23 @@ try {
     $resolvedPostgres = Resolve-PostgresBin -OverridePath $fakePostgres
     Assert-Equal $resolvedPostgres ([IO.Path]::GetFullPath($fakePostgres)) 'Explicit PostgreSQL path was not honored'
 
+    $backendPath = Join-Path $fixtureRoot 'backend'
+    $nodeModulesPath = Join-Path $backendPath 'node_modules'
+    $lockPath = Join-Path $backendPath 'package-lock.json'
+    $null = New-Item -ItemType Directory -Path $nodeModulesPath -Force
+    [IO.File]::WriteAllText($lockPath, '{"lockfileVersion":3}')
+
+    function Get-FileHash { throw 'Dependency markers must not require the Get-FileHash cmdlet.' }
+    Write-ApplicationDependencyMarker -ApplicationPath $backendPath
+    if (-not (Test-ApplicationDependenciesCurrent -ApplicationPath $backendPath)) {
+        throw 'Dependency marker should match the current lock file without Get-FileHash.'
+    }
+    [IO.File]::AppendAllText($lockPath, [Environment]::NewLine)
+    if (Test-ApplicationDependenciesCurrent -ApplicationPath $backendPath) {
+        throw 'Dependency marker must detect a changed lock file.'
+    }
+    Remove-Item Function:\Get-FileHash
+
     $firstSecrets = Get-OrCreateLocalSecrets -Config $config
     $secondSecrets = Get-OrCreateLocalSecrets -Config $config
     Assert-Equal $secondSecrets.DatabasePassword $firstSecrets.DatabasePassword 'Database password must remain stable'

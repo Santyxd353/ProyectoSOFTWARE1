@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { BackendRefinementService } from './backend-refinement.service';
 
 describe('BackendRefinementService', () => {
@@ -65,6 +65,42 @@ describe('BackendRefinementService', () => {
     expect(JSON.stringify(request)).not.toContain('abc.def.ghi');
     expect(result.promptSummary).not.toContain('hunter2');
     expect(result.promptSummary).toContain('[REDACTED]');
+  });
+
+  it('uses the configured current model with thinking disabled', async () => {
+    config.get.mockImplementation((key: string) => ({
+      ANTHROPIC_API_KEY: 'test-key',
+      AI_MODEL_MAIN: 'claude-sonnet-custom',
+      AI_REFINEMENT_SECRET: 'test-refinement-secret',
+    })[key]);
+    service = new BackendRefinementService(
+      prisma as any,
+      config as any,
+      authorization as any,
+      generation as any,
+    );
+    (service as any).anthropic = { messages: { create: messagesCreate } };
+
+    const result = await service.propose('diagram-1', 'user-1', 'Add a health endpoint');
+
+    expect(messagesCreate).toHaveBeenCalledWith(expect.objectContaining({
+      model: 'claude-sonnet-custom',
+      thinking: { type: 'disabled' },
+    }));
+    expect(result.engine).toBe('claude-sonnet-custom');
+  });
+
+  it('fails explicitly when cloud AI is not configured', async () => {
+    config.get.mockReturnValue(undefined);
+    service = new BackendRefinementService(
+      prisma as any,
+      config as any,
+      authorization as any,
+      generation as any,
+    );
+
+    await expect(service.propose('diagram-1', 'user-1', 'Add a health endpoint'))
+      .rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
   it('rejects an AI response outside the supported refinement schema', async () => {

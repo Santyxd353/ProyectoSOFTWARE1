@@ -1,10 +1,11 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { AuthorizationService } from '../authorization/authorization.service';
 import { CodeGenerationService } from '../code-generation/code-generation.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AiProviderConfig, resolveAiProviderConfig } from './ai-provider.config';
 
 export const BACKEND_REFINEMENT_FEATURES = [
   'HEALTH_ENDPOINT',
@@ -22,9 +23,9 @@ type RefinementPlan = {
 
 @Injectable()
 export class BackendRefinementService {
-  private readonly anthropic: Anthropic;
+  private readonly anthropic: Anthropic | null;
   private readonly consumedTokens = new Set<string>();
-  private readonly engine = 'claude-haiku-4-5-20251001';
+  private readonly aiConfig: AiProviderConfig;
   private now = () => Date.now();
 
   constructor(
@@ -33,10 +34,18 @@ export class BackendRefinementService {
     private readonly authorization: AuthorizationService,
     private readonly generation: CodeGenerationService,
   ) {
-    this.anthropic = new Anthropic({ apiKey: this.config.get('CLAUDE_API_KEY') });
+    this.aiConfig = resolveAiProviderConfig(this.config);
+    this.anthropic = this.aiConfig.apiKey
+      ? new Anthropic({ apiKey: this.aiConfig.apiKey })
+      : null;
   }
 
   async propose(diagramId: string, userId: string, instruction: string) {
+    if (!this.aiConfig.configured) {
+      throw new ServiceUnavailableException(
+        'Cloud AI is not configured. Set ANTHROPIC_API_KEY to enable backend refinement.',
+      );
+    }
     const diagram = await this.prisma.diagram.findUnique({ where: { id: diagramId } });
     if (!diagram) throw new BadRequestException('Diagram not found');
     await this.authorization.require(diagram.workspaceId, userId, 'repository:generate');
@@ -44,8 +53,9 @@ export class BackendRefinementService {
     const promptSummary = this.sanitizeInstruction(instruction);
     if (!promptSummary) throw new BadRequestException('Refinement instruction is required');
     const message = await this.anthropic.messages.create({
-      model: this.engine,
+      model: this.aiConfig.mainModel,
       max_tokens: 1200,
+      thinking: { type: 'disabled' },
       messages: [{
         role: 'user',
         content: [
@@ -66,7 +76,7 @@ export class BackendRefinementService {
       userId,
       modelVersion: diagram.version,
       promptSummary,
-      engine: this.engine,
+      engine: this.aiConfig.mainModel,
       plan,
       features,
       exp: this.now() + 10 * 60 * 1000,
@@ -80,7 +90,7 @@ export class BackendRefinementService {
       changes: plan.changes,
       warnings: plan.warnings,
       promptSummary,
-      engine: this.engine,
+      engine: this.aiConfig.mainModel,
       expiresAt: new Date(payload.exp).toISOString(),
       token: this.sign(payload),
     };

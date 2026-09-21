@@ -29,7 +29,7 @@ import { createReadStream, createWriteStream } from 'fs';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import * as path from 'path';
-import * as archiver from 'archiver';
+import archiver = require('archiver');
 import { RepositoryRealtimeService } from '../collaboration/repository-realtime.service';
 
 @Injectable()

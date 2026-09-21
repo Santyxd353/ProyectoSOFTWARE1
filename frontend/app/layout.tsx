@@ -1,17 +1,15 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import { cookies, headers } from 'next/headers';
 import { I18nProvider } from '@/components/i18n/I18nProvider';
 import { LOCALE_COOKIE_KEY, resolveLocale, translate } from '@/lib/i18n/core.ts';
 import { THEME_STORAGE_KEY } from '@/lib/theme';
 
-const inter = Inter({ subsets: ['latin'] });
-
-export function generateMetadata(): Metadata {
+export async function generateMetadata(): Promise<Metadata> {
+  const [cookieStore, requestHeaders] = await Promise.all([cookies(), headers()]);
   const locale = resolveLocale(
-    cookies().get(LOCALE_COOKIE_KEY)?.value,
-    headers().get('accept-language'),
+    cookieStore.get(LOCALE_COOKIE_KEY)?.value,
+    requestHeaders.get('accept-language'),
   );
   return {
     title: 'UML Studio',
@@ -33,14 +31,15 @@ const themeScript = `
   })();
 `;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [cookieStore, requestHeaders] = await Promise.all([cookies(), headers()]);
   const initialLocale = resolveLocale(
-    cookies().get(LOCALE_COOKIE_KEY)?.value,
-    headers().get('accept-language'),
+    cookieStore.get(LOCALE_COOKIE_KEY)?.value,
+    requestHeaders.get('accept-language'),
   );
 
   return (
@@ -48,7 +47,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className={inter.className}>
+      <body>
         <I18nProvider initialLocale={initialLocale}>{children}</I18nProvider>
       </body>
     </html>

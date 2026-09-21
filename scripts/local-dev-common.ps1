@@ -1,5 +1,23 @@
 Set-StrictMode -Version Latest
 
+function Get-Sha256FileHash {
+    param(
+        [Parameter(Mandatory)] [string] $Path
+    )
+
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        $sha256 = [Security.Cryptography.SHA256]::Create()
+        try {
+            return ([BitConverter]::ToString($sha256.ComputeHash($stream))).Replace('-', '')
+        } finally {
+            $sha256.Dispose()
+        }
+    } finally {
+        $stream.Dispose()
+    }
+}
+
 function Get-LocalDevConfiguration {
     param(
         [Parameter(Mandatory)] [string] $RepositoryRoot
@@ -39,7 +57,7 @@ function Test-ApplicationDependenciesCurrent {
         return $false
     }
 
-    $expectedHash = (Get-FileHash -LiteralPath $lockPath -Algorithm SHA256).Hash
+    $expectedHash = Get-Sha256FileHash -Path $lockPath
     $installedHash = ([IO.File]::ReadAllText($markerPath)).Trim()
     return $installedHash -eq $expectedHash
 }
@@ -52,7 +70,7 @@ function Write-ApplicationDependencyMarker {
     $lockPath = Join-Path $ApplicationPath 'package-lock.json'
     $nodeModulesPath = Join-Path $ApplicationPath 'node_modules'
     $markerPath = Join-Path $nodeModulesPath '.puds-package-lock.sha256'
-    $lockHash = (Get-FileHash -LiteralPath $lockPath -Algorithm SHA256).Hash
+    $lockHash = Get-Sha256FileHash -Path $lockPath
     [IO.File]::WriteAllText($markerPath, $lockHash)
 }
 
@@ -132,8 +150,9 @@ function Write-LocalEnvironmentFiles {
         ('DATABASE_URL="{0}"' -f $databaseUrl)
         ('JWT_SECRET="{0}"' -f $JwtSecret)
         'JWT_EXPIRES_IN="7d"'
-        'GEMINI_API_KEY=""'
-        'CLAUDE_API_KEY=""'
+        'ANTHROPIC_API_KEY=""'
+        'AI_MODEL_MAIN="claude-sonnet-5"'
+        'AI_MODEL_FAST="claude-sonnet-5"'
         ('CORS_ORIGIN="http://localhost:{0}"' -f $Config.FrontendPort)
         ('FRONTEND_URL="http://localhost:{0}"' -f $Config.FrontendPort)
         'GENERATED_PROJECTS_PATH="./generated-projects"'
