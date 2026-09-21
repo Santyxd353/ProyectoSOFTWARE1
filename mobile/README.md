@@ -36,6 +36,8 @@ adb install -r build\app\outputs\flutter-apk\app-debug.apk
 
 El APK resultante queda en `mobile/build/app/outputs/flutter-apk/app-debug.apk`.
 
+Después de ejecutar `flutter test integration_test/android_parity_journey_test.dart -d emulator-5554`, vuelve a ejecutar `flutter build apk --debug` **antes** de instalar la APK para una prueba manual. El recorrido de integración puede dejar en esa misma ruta una APK con la entrada de pruebas, que abre con la pantalla negra al iniciarla como aplicación normal.
+
 ## Verificación
 
 ```powershell
