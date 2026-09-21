@@ -182,7 +182,20 @@ class _ClassFormState extends State<ClassForm> {
         20 + MediaQuery.viewInsetsOf(context).bottom,
       ),
       children: [
-        Text('Clase UML', style: Theme.of(context).textTheme.titleLarge),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Clase UML',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
+            ),
+          ],
+        ),
         const SizedBox(height: 16),
         TextField(
           key: const Key('class-name'),

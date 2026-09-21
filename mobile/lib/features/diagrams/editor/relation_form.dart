@@ -57,7 +57,20 @@ class _RelationFormState extends State<RelationForm> {
     child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('Relación UML', style: Theme.of(context).textTheme.titleLarge),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Relación UML',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
+            ),
+          ],
+        ),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
           initialValue: source,

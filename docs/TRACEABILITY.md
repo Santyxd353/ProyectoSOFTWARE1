@@ -66,7 +66,7 @@ Estado del alcance: los RF-01 a RF-32 y CU-01 a CU-25 tienen implementación loc
 | CU-19 | Administrar roles y permisos | RF-05, RF-21, RF-24 | `authorization.service.spec.ts`, `workspace.service.spec.ts`, autenticación de socket. |
 | CU-20 | Descargar, comparar o restaurar una revisión | RF-13, RF-22, RF-23 | Descarga ZIP 200, comparación de 19 archivos y nueva revisión restaurada. |
 | CU-21 | Gestionar cuenta, proyectos y diagramas desde Android | RF-25, RF-27 | `app_controller_lifecycle_test.dart`, `project_lifecycle_widget_test.dart` y recorrido Android integral aprobado. |
-| CU-22 | Editar un diagrama UML táctil | RF-26, RF-29 | Reductores, lienzo y formularios cubiertos por `diagram_operations_test.dart`, `uml_canvas_controller_test.dart` y `uml_editor_widget_test.dart`. |
+| CU-22 | Editar un diagrama UML táctil | RF-26, RF-29 | Reductores, lienzo y formularios cubiertos por `diagram_operations_test.dart`, `uml_canvas_controller_test.dart`, `uml_editor_widget_test.dart` y `editor_sheet_navigation_test.dart`; clase y relación pueden cancelarse sin guardar. |
 | CU-23 | Invitar mediante enlace o código | RF-21, RF-28 | Dos usuarios reales crearon y reclamaron un código en el emulador; suites de invitación cubren vencimiento, revocación, rol e idempotencia. |
 | CU-24 | Generar y revisar artefactos desde Android | RF-30 | El recorrido Android generó Spring Boot y Flutter, abrió el árbol, comentó, comparó y descargó un ZIP. |
 | CU-25 | Intercambiar y sincronizar trabajo desde Android | RF-16, RF-20, RF-29, RF-31, RF-32 | Recorrido Android XMI de ida y vuelta y persistencia real de una operación offline entre recreaciones; conflictos y replay cubiertos por pruebas específicas. |
@@ -79,7 +79,7 @@ Estado del alcance: los RF-01 a RF-32 y CU-01 a CU-25 tienen implementación loc
 - WebSocket real: JWT aceptado antes de eventos, unión a diagrama y reproducción de una operación persistida.
 - Backend: `npm test -- --runInBand --forceExit --silent` y `npm run build`.
 - Frontend: `npm test`, `npm run type-check` y `npm run build`.
-- Android: Flutter 3.35.7, `flutter analyze` sin observaciones, 67 pruebas Flutter y 2 recorridos de integración en emulador.
+- Android: Flutter 3.35.7, `flutter analyze` sin observaciones, 69 pruebas Flutter y 2 recorridos de integración en emulador.
 - El recorrido CU-21..CU-25 usó dos usuarios autenticados, invitación temporal, edición versionada, generación Spring Boot/Flutter, revisión/comentario/comparación/ZIP y reimportación XMI.
 - `npm audit` informa 0 vulnerabilidades en las 804 dependencias del backend y 0 en las 550 del frontend.
 - La APK se compiló, instaló y permaneció activa en Android 15 API 35 sin excepciones fatales.

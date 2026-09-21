@@ -38,6 +38,14 @@ El APK resultante queda en `mobile/build/app/outputs/flutter-apk/app-debug.apk`.
 
 Después de ejecutar `flutter test integration_test/android_parity_journey_test.dart -d emulator-5554`, vuelve a ejecutar `flutter build apk --debug` **antes** de instalar la APK para una prueba manual. El recorrido de integración puede dejar en esa misma ruta una APK con la entrada de pruebas, que abre con la pantalla negra al iniciarla como aplicación normal.
 
+### Teclado y navegación del emulador
+
+Si Android Studio no transmite las teclas o el botón Atrás en la ventana **Running Devices**, abre **Settings > Tools > Emulator** y desactiva **Launch in the Running Devices tool window**. Detén el AVD y vuelve a iniciarlo desde **Tools > Device Manager** para usar la ventana independiente.
+
+Para escribir desde el teclado del PC, con el AVD apagado comprueba que `%USERPROFILE%\.android\avd\ProyectoSW1_API35.avd\config.ini` contenga `hw.keyboard=yes`. Si el teclado táctil no aparece al enfocar un campo, pulsa el icono de teclado en la esquina inferior derecha del emulador y activa **Use on-screen keyboard**. Estos ajustes no requieren borrar los datos de la aplicación.
+
+Los formularios de clase y relación UML también tienen **Cancelar** para volver al diagrama sin guardar, incluso si el botón Atrás no responde.
+
 ## Verificación
 
 ```powershell
