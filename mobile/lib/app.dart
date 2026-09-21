@@ -864,6 +864,9 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
           ));
           proposal = reply.proposedModel;
         });
+        if (reply.requiresConfirmation) {
+          await _confirmPendingAction();
+        }
       }
     } catch (error) {
       if (mounted) {
@@ -877,6 +880,50 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       }
     } finally {
       if (mounted) setState(() => sending = false);
+    }
+  }
+
+  Future<void> _confirmPendingAction() async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar cambio destructivo'),
+        content: const Text(
+          'Esta acción eliminará una clase y sus relaciones. ¿Deseas aplicarla?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (accepted != true) {
+      widget.controller.cancelPendingAiCommand();
+      setState(
+        () => messages.add((
+          user: false,
+          text: 'Acción cancelada; el diagrama no cambió.',
+          engine: 'sistema',
+        )),
+      );
+      return;
+    }
+    final confirmed = await widget.controller.confirmPendingAiCommand();
+    if (mounted) {
+      setState(
+        () => messages.add((
+          user: false,
+          text: confirmed.message,
+          engine: confirmed.engine,
+        )),
+      );
     }
   }
 

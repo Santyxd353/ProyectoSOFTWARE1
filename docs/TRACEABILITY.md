@@ -1,8 +1,8 @@
 # Trazabilidad PUDS - implementación local
 
-Fecha de verificación: 14 de septiembre de 2026.
+Fecha de verificación: 20 de septiembre de 2026.
 
-Estado del alcance: los RF-01 a RF-24 y CU-01 a CU-20 tienen implementación local en el monorepositorio. La ampliación documental de paridad Android incorpora RF-25 a RF-32 y CU-21 a CU-25; permanecen pendientes hasta completar y verificar su implementación. El despliegue en Google Cloud continúa fuera de esta etapa.
+Estado del alcance: los RF-01 a RF-32 y CU-01 a CU-25 tienen implementación local comprobada en el monorepositorio. La paridad Android se verificó con pruebas unitarias, de widgets, integración contra la API real y una APK instalada en un emulador Android 15 (API 35). El despliegue en Google Cloud continúa fuera de esta etapa.
 
 ## Requisitos funcionales
 
@@ -22,7 +22,7 @@ Estado del alcance: los RF-01 a RF-24 y CU-01 a CU-20 tienen implementación loc
 | RF-12 | Guardar el código generado en un repositorio interno por proyecto. | `backend/src/code-repository/code-repository.service.ts`, `frontend/components/repository/CodeRepositoryPanel.tsx` | Implementado; publicación real con 19 archivos verificada. |
 | RF-13 | Mantener revisiones inmutables y comparables de cada generación. | `backend/prisma/schema.prisma`, `backend/src/code-repository/code-repository.service.spec.ts` | Implementado y probado. |
 | RF-14 | Aceptar solicitudes de IA por texto y por audio. | `mobile/lib/main.dart`, `mobile/lib/app_controller.dart` | Implementado en Android con dictado y lectura de respuesta. |
-| RF-15 | Ejecutar comandos UML básicos sin conexión a internet. | `mobile/lib/core/ai/local_ai_engine.dart`, `mobile/test/local_ai_engine_test.dart` | Implementado y probado sin servicio remoto. |
+| RF-15 | Ejecutar comandos UML básicos sin conexión a internet. | `mobile/lib/core/ai/local_model_runtime.dart`, `function_catalog.dart`, `local_ai_engine_test.dart` | Implementado con FunctionGemma 270M opcional y fallback básico identificado; las acciones se validan antes de modificar el diagrama. |
 | RF-16 | Sincronizar operaciones móviles pendientes al recuperar conectividad. | `mobile/lib/app_controller.dart`, `mobile/lib/core/api/api_client.dart`, `backend/src/collaboration/collaboration-operation.service.ts` | Implementado con cola durable e idempotencia. |
 | RF-17 | Importar y exportar modelos mediante XMI, JSON y ZIP propio. | `backend/src/diagram-interchange/diagram-interchange.service.ts`, `frontend/app/workspace/[workspaceId]/page.tsx` | Implementado con vista previa, advertencias y confirmación. |
 | RF-18 | Refinar código y decisiones de diseño con una IA en la nube. | `backend/src/ai-chat/backend-refinement.service.ts`, `frontend/components/code-generation/CodeGenerationPanel.tsx` | Implementado; requiere `ANTHROPIC_API_KEY` e internet para una llamada real. Mantiene compatibilidad temporal con `CLAUDE_API_KEY`. |
@@ -32,14 +32,14 @@ Estado del alcance: los RF-01 a RF-24 y CU-01 a CU-20 tienen implementación loc
 | RF-22 | Descargar, comparar y restaurar revisiones autorizadas. | `backend/src/code-repository/code-repository.controller.ts`, `RevisionCompare.tsx` | Implementado; ZIP, comparación y restauración verificados. |
 | RF-23 | Persistir datos y artefactos fuera de instancias efímeras de ejecución. | `backend/prisma/schema.prisma`, `backend/src/artifact-storage/local-artifact-storage.service.ts` | Implementado localmente en PostgreSQL y `.local`/`artifacts`. |
 | RF-24 | Registrar eventos relevantes para auditoría y diagnóstico. | `backend/src/audit/audit.service.ts`, modelos `AuditEvent` y `DiagramActivity` | Implementado; metadatos sensibles se filtran. |
-| RF-25 | Ofrecer en Android las funciones de cuenta, perfil, idioma, tema y acceso disponibles en la web. | Implementación Android por completar. | Pendiente documentado. |
-| RF-26 | Crear y editar clases, atributos, métodos y relaciones mediante un editor UML táctil. | Implementación Android por completar. | Pendiente documentado. |
-| RF-27 | Administrar desde Android el ciclo de vida de proyectos y diagramas según permisos. | Implementación Android por completar. | Pendiente documentado. |
-| RF-28 | Invitar por correo, enlace o código temporal, revocable y asociado a un rol. | API y aplicación Android por completar. | Pendiente documentado. |
-| RF-29 | Colaborar en tiempo real desde Android con presencia y operaciones confirmadas. | Cliente Socket.IO móvil por completar. | Pendiente documentado. |
-| RF-30 | Generar, navegar, comentar, descargar, comparar y restaurar código desde Android. | Cliente móvil del repositorio por completar. | Pendiente documentado. |
-| RF-31 | Importar y exportar XMI, JSON y ZIP desde el almacenamiento del dispositivo. | Integración de archivos Android por completar. | Pendiente documentado. |
-| RF-32 | Visualizar y resolver conflictos móviles conservando variantes, autor y versión. | Interfaz móvil de conflictos por completar. | Pendiente documentado. |
+| RF-25 | Ofrecer en Android las funciones de cuenta, perfil, idioma, tema y acceso disponibles en la web. | `mobile/lib/app.dart`, `features/auth/`, `features/settings/`, `project_lifecycle_widget_test.dart` | Implementado y probado. |
+| RF-26 | Crear y editar clases, atributos, métodos y relaciones mediante un editor UML táctil. | `mobile/lib/features/diagrams/editor/`, `diagram_operations_test.dart`, `uml_editor_widget_test.dart` | Implementado con pan, zoom, arrastre, formularios y confirmación destructiva. |
+| RF-27 | Administrar desde Android el ciclo de vida de proyectos y diagramas según permisos. | `mobile/lib/features/workspaces/workspace_management.dart`, `app_controller_lifecycle_test.dart` | Implementado con controles por rol y validación del servidor. |
+| RF-28 | Invitar por correo, enlace o código temporal, revocable y asociado a un rol. | `backend/src/invitation/`, `mobile/lib/features/workspaces/invitations_screen.dart`, `invitations_screen_test.dart` | Implementado; enlace/código, caducidad, revocación, vínculo opcional de correo e idempotencia probados. |
+| RF-29 | Colaborar en tiempo real desde Android con presencia y operaciones confirmadas. | `mobile/lib/core/realtime/realtime_client.dart`, `realtime_client_test.dart`, `app_controller_sync_test.dart` | Implementado con JWT, reingreso, cursor de replay y presencia. |
+| RF-30 | Generar, navegar, comentar, descargar, comparar y restaurar código desde Android. | `mobile/lib/features/generation/`, `features/repository/`, `artifact_hub_screen_test.dart` | Implementado y recorrido contra la API local. |
+| RF-31 | Importar y exportar XMI, JSON y ZIP desde el almacenamiento del dispositivo. | `mobile/lib/features/interchange/`, `portability_api_test.dart`, `android_parity_journey_test.dart` | Implementado con selector/guardado del sistema y recorrido XMI de ida y vuelta. |
+| RF-32 | Visualizar y resolver conflictos móviles conservando variantes, autor y versión. | `mobile/lib/features/conflicts/`, `conflict_merge_test.dart`, `sync_coordinator_test.dart` | Implementado con selección local/remota o fusión manual y descarte preciso de la operación confirmada. |
 
 ## Casos de uso
 
@@ -65,11 +65,11 @@ Estado del alcance: los RF-01 a RF-24 y CU-01 a CU-20 tienen implementación loc
 | CU-18 | Detectar y resolver conflictos de sincronización | RF-16, RF-20, RF-24 | Conflicto real creado/resuelto; ambas variantes se conservan hasta resolver. |
 | CU-19 | Administrar roles y permisos | RF-05, RF-21, RF-24 | `authorization.service.spec.ts`, `workspace.service.spec.ts`, autenticación de socket. |
 | CU-20 | Descargar, comparar o restaurar una revisión | RF-13, RF-22, RF-23 | Descarga ZIP 200, comparación de 19 archivos y nueva revisión restaurada. |
-| CU-21 | Gestionar cuenta, proyectos y diagramas desde Android | RF-25, RF-27 | Pendiente de recorrido Android completo. |
-| CU-22 | Editar un diagrama UML táctil | RF-26, RF-29 | Pendiente de pruebas de lienzo, formularios y sincronización. |
-| CU-23 | Invitar mediante enlace o código | RF-21, RF-28 | Pendiente de pruebas de vencimiento, revocación, rol e idempotencia. |
-| CU-24 | Generar y revisar artefactos desde Android | RF-30 | Pendiente de recorrido móvil de generación y repositorio. |
-| CU-25 | Intercambiar y sincronizar trabajo desde Android | RF-16, RF-20, RF-29, RF-31, RF-32 | Pendiente de pruebas online, offline, importación, exportación y conflictos. |
+| CU-21 | Gestionar cuenta, proyectos y diagramas desde Android | RF-25, RF-27 | `app_controller_lifecycle_test.dart`, `project_lifecycle_widget_test.dart` y recorrido Android integral aprobado. |
+| CU-22 | Editar un diagrama UML táctil | RF-26, RF-29 | Reductores, lienzo y formularios cubiertos por `diagram_operations_test.dart`, `uml_canvas_controller_test.dart` y `uml_editor_widget_test.dart`. |
+| CU-23 | Invitar mediante enlace o código | RF-21, RF-28 | Dos usuarios reales crearon y reclamaron un código en el emulador; suites de invitación cubren vencimiento, revocación, rol e idempotencia. |
+| CU-24 | Generar y revisar artefactos desde Android | RF-30 | El recorrido Android generó Spring Boot y Flutter, abrió el árbol, comentó, comparó y descargó un ZIP. |
+| CU-25 | Intercambiar y sincronizar trabajo desde Android | RF-16, RF-20, RF-29, RF-31, RF-32 | Recorrido Android XMI de ida y vuelta y persistencia real de una operación offline entre recreaciones; conflictos y replay cubiertos por pruebas específicas. |
 
 ## Verificación ejecutada
 
@@ -79,7 +79,12 @@ Estado del alcance: los RF-01 a RF-24 y CU-01 a CU-20 tienen implementación loc
 - WebSocket real: JWT aceptado antes de eventos, unión a diagrama y reproducción de una operación persistida.
 - Backend: `npm test -- --runInBand --forceExit --silent` y `npm run build`.
 - Frontend: `npm test`, `npm run type-check` y `npm run build`.
-- Android: Flutter 3.35.7, `flutter analyze`, 13 pruebas y `flutter build apk --debug`.
+- Android: Flutter 3.35.7, `flutter analyze` sin observaciones, 65 pruebas Flutter y 2 recorridos de integración en emulador.
+- El recorrido CU-21..CU-25 usó dos usuarios autenticados, invitación temporal, edición versionada, generación Spring Boot/Flutter, revisión/comentario/comparación/ZIP y reimportación XMI.
+- `npm audit` informa 0 vulnerabilidades en las 804 dependencias del backend y 0 en las 550 del frontend.
+- La APK se compiló, instaló y permaneció activa en Android 15 API 35 sin excepciones fatales.
 - APK generado en `mobile/build/app/outputs/flutter-apk/app-debug.apk`.
 
 La llamada al proveedor Claude no se ejecutó contra una cuenta real porque el entorno local verificado mantiene `ANTHROPIC_API_KEY` vacío. El contrato, selección configurable de modelo, redacción de secretos, validación de esquema, caducidad/autorización del token, ausencia de mutación durante propuesta, modo local explícito y trazabilidad tras confirmación sí están cubiertos por pruebas automatizadas.
+
+FunctionGemma no se incluye dentro de la APK: el usuario descarga o importa el archivo oficial de 284 MB desde **Configuración > IA sin conexión**. El gestor muestra el progreso, comprueba su SHA-256 y permite retirarlo. La integración, el catálogo de herramientas y los límites del fallback están probados; la velocidad y memoria de inferencia deben validarse también en el teléfono Android físico objetivo porque dependen del hardware.

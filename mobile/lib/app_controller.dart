@@ -73,6 +73,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   bool busy = false;
   String? error;
   String? _token;
+  LocalCommand? _pendingAiCommand;
 
   bool get signedIn => _token != null;
 
@@ -642,6 +643,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       );
     }
     if (local.requiresConfirmation) {
+      _pendingAiCommand = local.command;
       return AiReply(
         message: local.message,
         engine: _engineName(local.engine),
@@ -672,6 +674,27 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       );
     }
     return AiReply(message: local.message, engine: _engineName(local.engine));
+  }
+
+  Future<AiReply> confirmPendingAiCommand() async {
+    final command = _pendingAiCommand;
+    _pendingAiCommand = null;
+    if (command == null) {
+      return const AiReply(
+        message: 'No hay una acción pendiente para confirmar.',
+        engine: 'sistema',
+      );
+    }
+    await _applyLocalCommand(command, destructiveConfirmed: true);
+    return const AiReply(
+      message: 'La acción confirmada se aplicó al diagrama.',
+      engine: 'function-gemma',
+      localCommandApplied: true,
+    );
+  }
+
+  void cancelPendingAiCommand() {
+    _pendingAiCommand = null;
   }
 
   String _engineName(AiEngine engine) => switch (engine) {
@@ -711,7 +734,10 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     await _saveDiagram(data);
   }
 
-  Future<void> _applyLocalCommand(LocalCommand command) async {
+  Future<void> _applyLocalCommand(
+    LocalCommand command, {
+    bool destructiveConfirmed = false,
+  }) async {
     if (activeDiagram == null) return;
     if (activeWorkspace != null &&
         !activeWorkspace!.roleValue.canEditDiagrams) {
@@ -787,7 +813,18 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       });
       data['relations'] = relations;
     } else if (command.type == LocalCommandType.deleteClass) {
-      throw StateError('La eliminación requiere confirmación en el editor.');
+      if (!destructiveConfirmed) {
+        throw StateError('La eliminación requiere confirmación explícita.');
+      }
+      final classId = command.arguments['classId'];
+      classes.removeWhere((item) => item['id'] == classId);
+      final relations = (data['relations'] as List? ?? const [])
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .where(
+            (item) => item['source'] != classId && item['target'] != classId,
+          )
+          .toList();
+      data['relations'] = relations;
     }
     data['classes'] = classes;
     data['relations'] ??= <dynamic>[];

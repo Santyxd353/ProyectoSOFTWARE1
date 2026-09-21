@@ -118,7 +118,8 @@ void main() {
     final result = await runtime.infer('elimina la clase');
 
     expect(result.requiresConfirmation, isTrue);
-    expect(result.command, isNull);
+    expect(result.command?.type, LocalCommandType.deleteClass);
+    expect(result.command?.arguments['classId'], 'class-1');
   });
 
   test('unloads the active model explicitly', () async {

@@ -28,7 +28,8 @@ docs/      PUDS y documentación técnica del proyecto
 - Importación y exportación confirmada mediante XMI 2.1/2.5.1, JSON y ZIP propio.
 - Especificación OpenAPI y colección Postman dentro de cada backend generado.
 - Refinamiento de backend asistido por IA, con propuesta previa y aplicación determinista confirmada.
-- Aplicación Android con caché local, cola offline, asistente por texto/voz y comandos UML básicos sin internet.
+- Aplicación Android con editor UML táctil, colaboración, invitaciones, repositorio, intercambio XMI/JSON/ZIP, cola offline y asistente híbrido por texto/voz.
+- FunctionGemma 270M opcional en el dispositivo, con descarga/importación, verificación SHA-256, catálogo cerrado de acciones y fallback básico identificado.
 
 ## Alcance pendiente para despliegue
 
@@ -102,6 +103,20 @@ Docker Desktop no es necesario. Las funciones normales, colaboración y reposito
 
 El refinamiento con IA acepta únicamente mejoras deterministas soportadas, muestra la propuesta y no genera una revisión hasta recibir confirmación. Los secretos detectados se sustituyen por `[REDACTED]` antes de enviar la instrucción al proveedor.
 
+## Android local
+
+Con un emulador iniciado o un teléfono Android conectado:
+
+```powershell
+cd mobile
+flutter pub get
+flutter run
+```
+
+El emulador usa por defecto `http://10.0.2.2:3002/api`. En un teléfono físico, abre **Configurar servidor local** y usa `http://IP_DE_TU_PC:3002/api`; ambos dispositivos deben estar en la misma red y el firewall debe permitir el puerto.
+
+La IA básica funciona sin descargar pesos. Para usar FunctionGemma sin internet después de la instalación, abre **Configuración > IA sin conexión > Descargar modelo oficial**. El archivo ocupa aproximadamente 284 MB y se verifica con SHA-256 antes de activarse. Las eliminaciones propuestas por IA nunca se ejecutan sin confirmación.
+
 ## Ejecución local
 
 Backend:
@@ -143,7 +158,7 @@ flutter test
 flutter build apk --debug
 ```
 
-El frontend verifica idioma, tema, colaboración durable, árbol de archivos y capacidades por rol. El backend prueba autorización, auditoría, almacenamiento seguro, publicación, revisión, descarga, restauración, comentarios, miembros, intercambio UML, generación de artefactos, refinamiento confirmado y autenticación WebSocket. Android verifica IA local, persistencia, cola offline, sincronización y conflictos.
+El frontend verifica idioma, tema, colaboración durable, árbol de archivos y capacidades por rol. El backend prueba autorización, auditoría, almacenamiento seguro, publicación, revisión, descarga, restauración, comentarios, miembros, intercambio UML, generación de artefactos, refinamiento confirmado y autenticación WebSocket. Android verifica IA local, editor táctil, persistencia, cola offline, colaboración, invitaciones, repositorio, intercambio y conflictos. El recorrido integral está en `mobile/integration_test/android_parity_journey_test.dart`.
 
 La evidencia RF/CU y el recorrido local verificado están en [docs/TRACEABILITY.md](docs/TRACEABILITY.md).
 

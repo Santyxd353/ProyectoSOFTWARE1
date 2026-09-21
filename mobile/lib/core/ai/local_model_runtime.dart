@@ -249,9 +249,14 @@ class LocalModelRuntime extends ChangeNotifier {
           command: validated.command,
         );
       } on ToolConfirmationRequired catch (exception) {
+        final reviewed = catalog.validate(
+          response.toolCall!,
+          allowDestructive: true,
+        );
         return LocalInferenceResult(
           engine: AiEngine.functionGemma,
           message: exception.message,
+          command: reviewed.command,
           requiresConfirmation: true,
         );
       }
