@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/widgets.dart';
@@ -88,6 +89,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     }
     locale = await store.readLocale();
     themeMode = await store.readThemeMode();
+    await localAi.runtime.start();
     await syncCoordinator.start();
     workspaces = (await store.readJsonList('workspaces'))
         .map(
@@ -616,27 +618,77 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   void _onRealtimeChanged() => notifyListeners();
 
   Future<AiReply> askAi(String message) async {
-    final local = localAi.respond(message);
+    final local = await localAi.respondHybrid(
+      message,
+      diagramContext: activeDiagram == null
+          ? null
+          : jsonEncode(activeDiagram!.data),
+    );
     if (local.requiresCloud) {
       if (!online) {
         return const AiReply(
           message:
               'Esta solicitud necesita conexión. La parte local sigue disponible.',
+          engine: 'fallback',
         );
       }
       final response = await api.chat(activeDiagram!.id, message);
       return AiReply(
         message: response['response'] as String? ?? 'Propuesta generada.',
+        engine: 'cloud',
         proposedModel: response['model'] == null
             ? null
             : Map<String, dynamic>.from(response['model'] as Map),
       );
     }
-    if (local.command != null) {
-      await _applyLocalCommand(local.command!);
-      return AiReply(message: local.message, localCommandApplied: true);
+    if (local.requiresConfirmation) {
+      return AiReply(
+        message: local.message,
+        engine: _engineName(local.engine),
+        requiresConfirmation: true,
+      );
     }
-    return AiReply(message: local.message);
+    if (local.command != null) {
+      if (local.command!.type == LocalCommandType.listProjects) {
+        final names = workspaces.map((workspace) => workspace.name).join(', ');
+        return AiReply(
+          message: names.isEmpty
+              ? 'No hay proyectos guardados en este dispositivo.'
+              : 'Proyectos disponibles: $names.',
+          engine: _engineName(local.engine),
+        );
+      }
+      if (local.command!.type == LocalCommandType.summarizeDiagram) {
+        return AiReply(
+          message: _diagramSummary(),
+          engine: _engineName(local.engine),
+        );
+      }
+      await _applyLocalCommand(local.command!);
+      return AiReply(
+        message: local.message,
+        engine: _engineName(local.engine),
+        localCommandApplied: true,
+      );
+    }
+    return AiReply(message: local.message, engine: _engineName(local.engine));
+  }
+
+  String _engineName(AiEngine engine) => switch (engine) {
+    AiEngine.functionGemma => 'function-gemma',
+    AiEngine.fallback => 'fallback',
+    AiEngine.cloud => 'cloud',
+  };
+
+  String _diagramSummary() {
+    final diagram = activeDiagram;
+    if (diagram == null) return 'No hay un diagrama abierto.';
+    final classes = diagram.data['classes'] as List? ?? const [];
+    final relations = diagram.data['relations'] as List? ?? const [];
+    final names = classes
+        .map((item) => (item as Map)['name']?.toString() ?? 'Sin nombre')
+        .join(', ');
+    return 'El diagrama contiene ${classes.length} clases y ${relations.length} relaciones${names.isEmpty ? '.' : ': $names.'}';
   }
 
   Future<void> applyProposal(Map<String, dynamic> model) async {
@@ -661,6 +713,10 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _applyLocalCommand(LocalCommand command) async {
     if (activeDiagram == null) return;
+    if (activeWorkspace != null &&
+        !activeWorkspace!.roleValue.canEditDiagrams) {
+      throw StateError('El rol actual no puede editar diagramas.');
+    }
     final data = Map<String, dynamic>.from(activeDiagram!.data);
     final classes = (data['classes'] as List? ?? const [])
         .map((item) => Map<String, dynamic>.from(item as Map))
@@ -705,6 +761,33 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         });
         target['attributes'] = attributes;
       }
+    } else if (command.type == LocalCommandType.connectClasses) {
+      final sourceName = command.arguments['source']!.toLowerCase();
+      final targetName = command.arguments['target']!.toLowerCase();
+      Map<String, dynamic>? source;
+      Map<String, dynamic>? target;
+      for (final item in classes) {
+        final name = item['name'].toString().toLowerCase();
+        if (name == sourceName) source = item;
+        if (name == targetName) target = item;
+      }
+      if (source == null || target == null) {
+        throw StateError('No encontré ambas clases para crear la relación.');
+      }
+      final relations = (data['relations'] as List? ?? const [])
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+      relations.add({
+        'id': 'relation_${DateTime.now().microsecondsSinceEpoch}',
+        'source': source['id'],
+        'target': target['id'],
+        'type': command.arguments['type'] ?? 'ASSOCIATION',
+        'sourceMultiplicity': command.arguments['sourceMultiplicity'] ?? '1',
+        'targetMultiplicity': command.arguments['targetMultiplicity'] ?? '*',
+      });
+      data['relations'] = relations;
+    } else if (command.type == LocalCommandType.deleteClass) {
+      throw StateError('La eliminación requiere confirmación en el editor.');
     }
     data['classes'] = classes;
     data['relations'] ??= <dynamic>[];

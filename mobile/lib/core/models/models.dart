@@ -325,11 +325,15 @@ class DiagramModel {
 class AiReply {
   const AiReply({
     required this.message,
+    required this.engine,
     this.proposedModel,
     this.localCommandApplied = false,
+    this.requiresConfirmation = false,
   });
 
   final String message;
+  final String engine;
   final Map<String, dynamic>? proposedModel;
   final bool localCommandApplied;
+  final bool requiresConfirmation;
 }

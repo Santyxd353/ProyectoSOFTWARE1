@@ -5,6 +5,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'app_controller.dart';
 import 'core/sync/sync_coordinator.dart';
 import 'features/auth/register_screen.dart';
+import 'features/ai/model_manager_screen.dart';
 import 'features/conflicts/conflicts_screen.dart';
 import 'features/diagrams/editor/class_form.dart';
 import 'features/diagrams/editor/relation_form.dart';
@@ -839,7 +840,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   final input = TextEditingController();
   final speech = SpeechToText();
   final tts = FlutterTts();
-  final messages = <({bool user, String text})>[];
+  final messages = <({bool user, String text, String? engine})>[];
   Map<String, dynamic>? proposal;
   bool sending = false;
   bool listening = false;
@@ -848,7 +849,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     final text = input.text.trim();
     if (text.isEmpty || sending) return;
     setState(() {
-      messages.add((user: true, text: text));
+      messages.add((user: true, text: text, engine: null));
       sending = true;
       input.clear();
     });
@@ -856,7 +857,11 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       final reply = await widget.controller.askAi(text);
       if (mounted) {
         setState(() {
-          messages.add((user: false, text: reply.message));
+          messages.add((
+            user: false,
+            text: reply.message,
+            engine: reply.engine,
+          ));
           proposal = reply.proposedModel;
         });
       }
@@ -866,6 +871,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
           () => messages.add((
             user: false,
             text: 'No pude completar la solicitud: $error',
+            engine: 'sistema',
           )),
         );
       }
@@ -918,6 +924,21 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                   status: widget.controller.syncStatus,
                 ),
                 IconButton(
+                  tooltip: 'Configurar IA local',
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ModelManagerScreen(controller: widget.controller),
+                    ),
+                  ),
+                  icon: Icon(
+                    widget.controller.localAi.runtime.ready
+                        ? Icons.memory
+                        : Icons.memory_outlined,
+                  ),
+                ),
+                IconButton(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close),
                 ),
@@ -947,31 +968,43 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                             ).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Flexible(
-                          child: Text(
-                            message.text,
-                            style: TextStyle(
-                              color: message.user
-                                  ? Theme.of(context).colorScheme.onPrimary
-                                  : null,
-                            ),
+                        if (!message.user && message.engine != null) ...[
+                          Text(
+                            _engineLabel(message.engine!),
+                            style: Theme.of(context).textTheme.labelSmall,
                           ),
+                          const SizedBox(height: 4),
+                        ],
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                message.text,
+                                style: TextStyle(
+                                  color: message.user
+                                      ? Theme.of(context).colorScheme.onPrimary
+                                      : null,
+                                ),
+                              ),
+                            ),
+                            if (!message.user)
+                              IconButton(
+                                onPressed: () async {
+                                  await tts.setLanguage('es-BO');
+                                  await tts.speak(message.text);
+                                },
+                                tooltip: 'Escuchar',
+                                icon: const Icon(
+                                  Icons.volume_up_outlined,
+                                  size: 18,
+                                ),
+                              ),
+                          ],
                         ),
-                        if (!message.user)
-                          IconButton(
-                            onPressed: () async {
-                              await tts.setLanguage('es-BO');
-                              await tts.speak(message.text);
-                            },
-                            tooltip: 'Escuchar',
-                            icon: const Icon(
-                              Icons.volume_up_outlined,
-                              size: 18,
-                            ),
-                          ),
                       ],
                     ),
                   ),
@@ -993,7 +1026,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Text(
-                    'Claude generó una propuesta. Confirma antes de reemplazar el diagrama.',
+                    'La IA en la nube generó una propuesta. Confirma antes de reemplazar el diagrama.',
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -1054,6 +1087,13 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       ),
     ),
   );
+
+  String _engineLabel(String engine) => switch (engine) {
+    'function-gemma' => 'FunctionGemma · dispositivo',
+    'cloud' => 'IA avanzada · nube',
+    'fallback' => 'Asistente básico · dispositivo',
+    _ => engine,
+  };
 }
 
 class ConnectionBadge extends StatelessWidget {

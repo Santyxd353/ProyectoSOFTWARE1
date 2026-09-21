@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app_controller.dart';
+import '../ai/model_manager_screen.dart';
 import 'app_text.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -87,6 +88,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           const SizedBox(height: 24),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.memory_outlined),
+              title: Text(text('IA sin conexión', 'Offline AI')),
+              subtitle: Text(
+                controller.localAi.runtime.ready
+                    ? text(
+                        'FunctionGemma está listo.',
+                        'FunctionGemma is ready.',
+                      )
+                    : text(
+                        'Instala el modelo local y verifica su integridad.',
+                        'Install the local model and verify its integrity.',
+                      ),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ModelManagerScreen(controller: controller),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           TextField(
             controller: apiUrl,
             keyboardType: TextInputType.url,
