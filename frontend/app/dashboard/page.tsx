@@ -9,10 +9,13 @@ import ThemeToggle from '@/components/theme/ThemeToggle';
 import LanguageToggle from '@/components/i18n/LanguageToggle';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { WorkspaceSort } from '@/types/workspace';
+import { useAuthHydrated } from '@/hooks/useAuthHydrated';
+import { protectedRouteState } from '@/lib/protected-route';
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  const authState = protectedRouteState(useAuthHydrated(), user);
   const { workspaces, fetchWorkspaces, createWorkspace, isLoading } = useWorkspaceStore();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', description: '' });
@@ -22,15 +25,16 @@ export default function DashboardPage() {
   const { t } = useI18n();
 
   useEffect(() => {
-    if (!user) {
-      router.push('/login');
+    if (authState === 'redirect') {
+      router.replace('/login');
       return;
     }
+    if (authState !== 'ready') return;
     const timer = window.setTimeout(() => {
       void fetchWorkspaces({ search, sort });
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [user, router, fetchWorkspaces, search, sort]);
+  }, [authState, router, fetchWorkspaces, search, sort]);
 
   const handleLogout = () => {
     logout();
@@ -66,7 +70,7 @@ export default function DashboardPage() {
     setFormData({ name: '', description: '' });
   };
 
-  if (!user) {
+  if (authState !== 'ready' || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>

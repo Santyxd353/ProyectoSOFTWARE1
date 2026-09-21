@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReactFlowProvider } from 'reactflow';
 import UMLEditor from '@/components/editor/UMLEditor';
@@ -12,18 +12,22 @@ import { Diagram } from '@/types/uml';
 import ThemeToggle from '@/components/theme/ThemeToggle';
 import LanguageToggle from '@/components/i18n/LanguageToggle';
 import { useI18n } from '@/components/i18n/I18nProvider';
+import { useAuthHydrated } from '@/hooks/useAuthHydrated';
+import { protectedRouteState } from '@/lib/protected-route';
 import { Download, Loader2 } from 'lucide-react';
 
 interface DiagramPageProps {
-  params: {
+  params: Promise<{
     workspaceId: string;
     diagramId: string;
-  };
+  }>;
 }
 
 export default function DiagramPage({ params }: DiagramPageProps) {
+  const { workspaceId, diagramId } = use(params);
   const router = useRouter();
   const { user } = useAuthStore();
+  const authState = protectedRouteState(useAuthHydrated(), user);
   const [diagram, setDiagram] = useState<Diagram | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,14 +41,15 @@ export default function DiagramPage({ params }: DiagramPageProps) {
   // Fetch diagram data
   useEffect(() => {
     const fetchDiagram = async () => {
-      if (!user) {
-        router.push('/login');
+      if (authState === 'redirect') {
+        router.replace('/login');
         return;
       }
+      if (authState !== 'ready') return;
 
       try {
         setIsLoading(true);
-        const diagramData = await diagramAPI.getDiagramById(params.diagramId);
+        const diagramData = await diagramAPI.getDiagramById(diagramId);
         setDiagram(diagramData);
       } catch (error: any) {
         console.error('Error fetching diagram:', error);
@@ -55,7 +60,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
     };
 
     fetchDiagram();
-  }, [params.diagramId, user, router, t]);
+  }, [diagramId, authState, router, t]);
 
   // Handle diagram save
   const handleSave = async (diagramData: any) => {
@@ -136,7 +141,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
     }
   };
 
-  if (!user) {
+  if (authState !== 'ready' || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -241,7 +246,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
             </button>
 
             <button
-              onClick={() => router.push(`/workspace/${params.workspaceId}`)}
+              onClick={() => router.push(`/workspace/${workspaceId}`)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
               {t('diagramEditor.header.workspace')}
@@ -256,7 +261,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
           <UMLEditor
             key={`${diagram.id}-${editorRevision}`}
             diagram={diagram}
-            workspaceId={params.workspaceId}
+            workspaceId={workspaceId}
             userId={user.id}
             userName={user.name}
             onSave={handleSave}

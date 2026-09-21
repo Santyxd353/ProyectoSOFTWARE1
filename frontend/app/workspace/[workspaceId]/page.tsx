@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Users, Calendar, FileText, ArrowLeft, Settings, Share, X, Archive, RotateCcw, Code2, Upload } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
@@ -15,6 +15,8 @@ import WorkspaceSettings from '@/components/workspace/WorkspaceSettings';
 import { Role } from '@/types/workspace';
 import LanguageToggle from '@/components/i18n/LanguageToggle';
 import { useI18n } from '@/components/i18n/I18nProvider';
+import { useAuthHydrated } from '@/hooks/useAuthHydrated';
+import { protectedRouteState } from '@/lib/protected-route';
 import {
   moveDiagramToArchive,
   normalizeWorkspaceDiagrams,
@@ -22,9 +24,9 @@ import {
 } from '@/lib/diagram-lifecycle';
 
 interface WorkspacePageProps {
-  params: {
+  params: Promise<{
     workspaceId: string;
-  };
+  }>;
 }
 
 interface ImportPreview {
@@ -48,8 +50,10 @@ const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
 };
 
 export default function WorkspacePage({ params }: WorkspacePageProps) {
+  const { workspaceId } = use(params);
   const router = useRouter();
   const { user } = useAuthStore();
+  const authState = protectedRouteState(useAuthHydrated(), user);
   const { currentWorkspace, fetchWorkspaceById, isLoading } = useWorkspaceStore();
   const [diagrams, setDiagrams] = useState<Diagram[]>([]);
   const [archivedDiagrams, setArchivedDiagrams] = useState<Diagram[]>([]);
@@ -70,12 +74,13 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
   const { t, formatDate } = useI18n();
 
   useEffect(() => {
-    if (!user) {
-      router.push('/login');
+    if (authState === 'redirect') {
+      router.replace('/login');
       return;
     }
-    fetchWorkspaceById(params.workspaceId);
-  }, [params.workspaceId, user, router, fetchWorkspaceById]);
+    if (authState !== 'ready') return;
+    fetchWorkspaceById(workspaceId);
+  }, [workspaceId, authState, router, fetchWorkspaceById]);
 
   useEffect(() => {
     if (currentWorkspace) {
@@ -90,12 +95,12 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
 
     try {
       setIsCreatingDiagram(true);
-      const newDiagram = await diagramAPI.createDiagram(params.workspaceId, newDiagramName);
+      const newDiagram = await diagramAPI.createDiagram(workspaceId, newDiagramName);
       setDiagrams(prev => [newDiagram, ...prev]);
       setNewDiagramName('');
 
       // Navigate to the new diagram
-      router.push(`/workspace/${params.workspaceId}/diagram/${newDiagram.id}`);
+      router.push(`/workspace/${workspaceId}/diagram/${newDiagram.id}`);
     } catch (error: any) {
       console.error('Error creating diagram:', error);
       alert(error.response?.data?.message || t('workspace.diagram.createError'));
@@ -105,7 +110,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
   };
 
   const handleDiagramClick = (diagramId: string) => {
-    router.push(`/workspace/${params.workspaceId}/diagram/${diagramId}`);
+    router.push(`/workspace/${workspaceId}/diagram/${diagramId}`);
   };
 
   const handleInviteCollaborator = async (e: React.FormEvent) => {
@@ -114,10 +119,10 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
 
     try {
       setIsInviting(true);
-      const result = await workspaceAPI.addCollaborator(params.workspaceId, collaboratorEmail, collaboratorRole);
+      const result = await workspaceAPI.addCollaborator(workspaceId, collaboratorEmail, collaboratorRole);
 
       // Refresh workspace data
-      await fetchWorkspaceById(params.workspaceId);
+      await fetchWorkspaceById(workspaceId);
 
       // Close modal and reset form
       setIsShareModalOpen(false);
@@ -171,7 +176,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
         : await file.text();
       const name = file.name.replace(/\.(xmi|json|zip)$/i, '').trim() || 'Imported diagram';
       const preview = await diagramAPI.previewImport(
-        params.workspaceId,
+        workspaceId,
         name,
         format,
         content,
@@ -222,7 +227,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
     setIsArchiveModalOpen(true);
   };
 
-  if (!user) {
+  if (authState !== 'ready' || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
@@ -548,7 +553,7 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
 
           {activeTab === 'code' && (
             <CodeRepositoryPanel
-              workspaceId={params.workspaceId}
+              workspaceId={workspaceId}
               role={currentRole}
               allowViewerComments={currentWorkspace.allowViewerComments}
             />
@@ -556,18 +561,18 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
 
           {activeTab === 'members' && (
             <MemberManagement
-              workspaceId={params.workspaceId}
+              workspaceId={workspaceId}
               role={currentRole}
-              onWorkspaceChanged={() => fetchWorkspaceById(params.workspaceId)}
+              onWorkspaceChanged={() => fetchWorkspaceById(workspaceId)}
             />
           )}
 
           {activeTab === 'settings' && currentRole === Role.OWNER && (
             <WorkspaceSettings
               workspace={currentWorkspace}
-              onWorkspaceChanged={() => fetchWorkspaceById(params.workspaceId)}
+              onWorkspaceChanged={() => fetchWorkspaceById(workspaceId)}
               onOwnershipTransferred={async () => {
-                await fetchWorkspaceById(params.workspaceId);
+                await fetchWorkspaceById(workspaceId);
                 setActiveTab('members');
               }}
             />
