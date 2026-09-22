@@ -9,6 +9,7 @@ frontend/  Aplicación web con Next.js, React Flow y Socket.IO
 backend/   API NestJS, Prisma, colaboración y generación de código
 mobile/    Aplicación Flutter Android offline-first
 docs/      PUDS y documentación técnica del proyecto
+deploy/    Plantillas reproducibles para Azure y Google Cloud
 ```
 
 ## Funcionalidad presente en el código base
@@ -28,16 +29,18 @@ docs/      PUDS y documentación técnica del proyecto
 - Importación y exportación confirmada mediante XMI 2.1/2.5.1, JSON y ZIP propio.
 - Especificación OpenAPI y colección Postman dentro de cada backend generado.
 - Refinamiento de backend asistido por IA, con propuesta previa y aplicación determinista confirmada.
+- Selección parcial de propuestas UML y mejoras de backend, con diferencias visibles antes de publicar.
+- Fusión automática de ediciones UML independientes; los cambios incompatibles conservan un conflicto explícito.
 - Aplicación Android con editor UML táctil, colaboración, invitaciones, repositorio, intercambio XMI/JSON/ZIP, cola offline y asistente híbrido por texto/voz.
 - FunctionGemma 270M opcional en el dispositivo, con descarga/importación, verificación SHA-256, catálogo cerrado de acciones y fallback básico identificado.
 
-## Alcance pendiente para despliegue
+## Despliegue
 
-- Despliegue objetivo sobre servicios administrados de Google Cloud.
+- Despliegue piloto objetivo en una VM de Azure; plantillas en `deploy/azure/`.
 - Sustitución de las rutas locales de artefactos y base de datos por servicios administrados.
 - Configuración productiva de secretos, dominios, HTTPS, observabilidad y publicación Android.
 
-La versión actual está preparada y verificada para desarrollo local. La adaptación a Google Cloud se realizará al final, como se acordó, sin mezclar configuración productiva con esta etapa.
+La versión actual está preparada y verificada para desarrollo local y para una VM piloto de Azure. Las credenciales productivas se mantienen fuera del repositorio.
 
 ## Idiomas
 
@@ -99,7 +102,9 @@ Para detener todo:
 .\DETENER_LOCAL.cmd
 ```
 
-Docker Desktop no es necesario. Las funciones normales, colaboración y repositorio interno pueden probarse sin claves externas. Para probar la IA online, agrega una clave válida en `backend/.env` después de la preparación inicial.
+Docker Desktop no es necesario. Las funciones normales, colaboración y repositorio interno pueden probarse sin claves externas. Para probar la IA online en local, configura `AI_PROVIDER=groq`, `GROQ_API_KEY`, `AI_MODEL_MAIN=qwen/qwen3.8-27b` y `AI_MODEL_FAST=qwen/qwen3.8-27b` en líneas separadas del archivo ignorado `backend/.env` y reinicia la API. La clave nunca debe copiarse al frontend ni a Android. Gemini y Anthropic continúan disponibles con `AI_PROVIDER=gemini`/`GEMINI_API_KEY` y `AI_PROVIDER=anthropic`/`ANTHROPIC_API_KEY`.
+
+Una clave que permite listar modelos no necesariamente puede generar contenido: si Google responde `403 PERMISSION_DENIED` por el proyecto, el chat lo informa y usa el fallback local; se necesita una clave de un proyecto con acceso para activar la IA en la nube. La clave de prueba no se incluye en Git.
 
 El refinamiento con IA acepta únicamente mejoras deterministas soportadas, muestra la propuesta y no genera una revisión hasta recibir confirmación. Los secretos detectados se sustituyen por `[REDACTED]` antes de enviar la instrucción al proveedor.
 

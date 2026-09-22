@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditAction, Role } from '@prisma/client';
 import { AuthorizationService } from '../authorization/authorization.service';
 import { AuditService } from '../audit/audit.service';
+import { RepositoryRealtimeService } from '../collaboration/repository-realtime.service';
 
 @Injectable()
 export class WorkspaceService {
@@ -15,6 +16,7 @@ export class WorkspaceService {
     private readonly prisma: PrismaService,
     private readonly authorization: AuthorizationService,
     private readonly audit: AuditService,
+    private readonly realtime: RepositoryRealtimeService,
   ) {}
 
   async createWorkspace(userId: string, name: string, description?: string) {
@@ -399,7 +401,16 @@ export class WorkspaceService {
       where: { id: memberId, workspaceId },
     });
     if (!member) throw new NotFoundException('Workspace member not found');
+    const diagrams = await this.prisma.diagram.findMany({
+      where: { workspaceId },
+      select: { id: true },
+    });
     await this.prisma.workspaceCollaborator.delete({ where: { id: member.id } });
+    await this.realtime.revokeWorkspaceAccess(
+      workspaceId,
+      member.userId,
+      diagrams.map((diagram) => diagram.id),
+    );
     await this.audit.record({
       workspaceId,
       actorId,

@@ -1,0 +1,14 @@
+[Unit]
+Description=ProyectoSOFTWARE1 Prisma migrations
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=proyecto
+Group=proyecto
+WorkingDirectory=/opt/proyecto/current/backend
+EnvironmentFile=/etc/proyecto-software1/backend.env
+ExecStart=/usr/bin/node node_modules/prisma/build/index.js migrate deploy
+NoNewPrivileges=true
+ProtectSystem=full

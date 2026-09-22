@@ -142,8 +142,13 @@ export class CollaborationGateway
       if (acknowledgement.status === 'CONFLICT') {
         return { success: false, ...acknowledgement };
       }
+      if (acknowledgement.status === 'DUPLICATE') {
+        return { success: true, ...acknowledgement };
+      }
       client.to(data.diagramId).emit('diagram_change', {
-        changes: data.changes,
+        changes: acknowledgement.autoMerged
+          ? { type: 'full_update', data: acknowledgement.data }
+          : data.changes,
         userId: user.id,
         timestamp: new Date().toISOString(),
         sequence: acknowledgement.sequence,

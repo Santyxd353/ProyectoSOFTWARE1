@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { ArrayNotEmpty, IsArray, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class ProposeBackendRefinementDto {
   @IsString()
@@ -15,4 +15,10 @@ export class ConfirmBackendRefinementDto {
   @IsString()
   @IsNotEmpty()
   token: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  selectedFeatures?: string[];
 }

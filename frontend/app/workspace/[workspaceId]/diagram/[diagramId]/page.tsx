@@ -4,7 +4,6 @@ import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReactFlowProvider } from 'reactflow';
 import UMLEditor from '@/components/editor/UMLEditor';
-import AIChatInterface from '@/components/chat/AIChatInterface';
 import CodeGenerationPanel from '@/components/code-generation/CodeGenerationPanel';
 import { useAuthStore } from '@/stores/auth';
 import { diagramAPI } from '@/lib/api';
@@ -31,11 +30,9 @@ export default function DiagramPage({ params }: DiagramPageProps) {
   const [diagram, setDiagram] = useState<Diagram | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCodeGenOpen, setIsCodeGenOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportFormat, setExportFormat] = useState<'xmi' | 'json' | 'zip'>('xmi');
-  const [editorRevision, setEditorRevision] = useState(0);
   const { t, formatDate } = useI18n();
 
   // Fetch diagram data
@@ -90,37 +87,6 @@ export default function DiagramPage({ params }: DiagramPageProps) {
       });
       setError(error.response?.data?.message || error.message || t('diagramEditor.validation.saveError'));
     }
-  };
-
-  // Handle UML generation from AI
-  const handleUMLGenerated = async (umlModel: any) => {
-    if (!diagram) return;
-
-    console.log('🎯 Aplicando modelo UML generado:', umlModel);
-
-    // Convert AI model to diagram format
-    const updatedData = {
-      ...diagram.data,
-      classes: umlModel.classes || [],
-      relations: umlModel.relations || [],
-      metadata: {
-        ...diagram.data.metadata,
-        lastAIGeneration: new Date().toISOString(),
-      },
-    };
-
-    console.log('📊 Datos actualizados del diagrama:', {
-      classes: updatedData.classes.length,
-      relations: updatedData.relations.length
-    });
-
-    const saved = await diagramAPI.updateDiagram(diagram.id, updatedData);
-    setDiagram((previous) => previous ? {
-      ...previous,
-      ...saved,
-      data: updatedData,
-    } : null);
-    setEditorRevision((current) => current + 1);
   };
 
   const handleExport = async () => {
@@ -224,17 +190,6 @@ export default function DiagramPage({ params }: DiagramPageProps) {
               {isExporting ? t('interchange.exporting') : t('interchange.export')}
             </button>
             <button
-              onClick={() => setIsChatOpen(!isChatOpen)}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                isChatOpen
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {isChatOpen ? t('diagramEditor.actions.closeChat') : t('diagramEditor.actions.openChat')}
-            </button>
-
-            <button
               onClick={() => setIsCodeGenOpen(!isCodeGenOpen)}
               className={`px-4 py-2 rounded-md transition-colors ${
                 isCodeGenOpen
@@ -259,7 +214,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
       <div className="flex-1 relative">
         <ReactFlowProvider>
           <UMLEditor
-            key={`${diagram.id}-${editorRevision}`}
+            key={diagram.id}
             diagram={diagram}
             workspaceId={workspaceId}
             userId={user.id}
@@ -267,14 +222,6 @@ export default function DiagramPage({ params }: DiagramPageProps) {
             onSave={handleSave}
           />
         </ReactFlowProvider>
-
-        {/* AI Chat Interface */}
-        <AIChatInterface
-          diagramId={diagram.id}
-          onUMLGenerated={handleUMLGenerated}
-          onClose={() => setIsChatOpen(false)}
-          isOpen={isChatOpen}
-        />
 
         {/* Code Generation Panel */}
         {isCodeGenOpen && (

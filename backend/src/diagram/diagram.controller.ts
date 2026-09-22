@@ -5,6 +5,7 @@ import { IsNotEmpty, IsString, IsObject, IsOptional, IsInt, Min, MaxLength, IsIn
 import { Response } from 'express';
 import { DiagramInterchangeService } from '../diagram-interchange/diagram-interchange.service';
 import { CollaborationOperationService } from '../collaboration/collaboration-operation.service';
+import { RepositoryRealtimeService } from '../collaboration/repository-realtime.service';
 
 class CreateDiagramDto {
   @IsString()
@@ -96,6 +97,7 @@ export class DiagramController {
     private diagramService: DiagramService,
     private readonly interchange: DiagramInterchangeService,
     private readonly operations: CollaborationOperationService,
+    private readonly realtime: RepositoryRealtimeService,
   ) {}
 
   @Post()
@@ -194,12 +196,12 @@ export class DiagramController {
   }
 
   @Post(':id/operations')
-  applyOperation(
+  async applyOperation(
     @Param('id') id: string,
     @Body() body: ApplyDiagramOperationDto,
     @Request() req,
   ) {
-    return this.operations.apply({
+    const result = await this.operations.apply({
       diagramId: id,
       userId: req.user.userId,
       deviceId: body.deviceId,
@@ -208,6 +210,17 @@ export class DiagramController {
       baseData: body.baseData,
       changes: body.changes as any,
     });
+    if (result.status === 'APPLIED') {
+      this.realtime.emitDiagramChange(id, {
+        changes: result.autoMerged ? { type: 'full_update', data: result.data } : body.changes,
+        userId: req.user.userId,
+        deviceId: body.deviceId,
+        sequence: result.sequence,
+        version: result.version,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    return result;
   }
 
   @Get(':id/operations')

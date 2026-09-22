@@ -264,8 +264,8 @@ export const aiAPI = {
     };
   },
 
-  confirmBackendRefinement: async (token: string) => {
-    const response = await api.post('/ai-chat/backend-refinement/confirm', { token }, {
+  confirmBackendRefinement: async (token: string, selectedFeatures?: string[]) => {
+    const response = await api.post('/ai-chat/backend-refinement/confirm', { token, selectedFeatures }, {
       timeout: 60000,
     });
     return response.data;

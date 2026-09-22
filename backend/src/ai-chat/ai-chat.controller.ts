@@ -57,7 +57,7 @@ export class AiChatController {
     @Body() body: ConfirmBackendRefinementDto,
     @Request() req,
   ) {
-    return this.backendRefinement.confirm(body.token, req.user.userId);
+    return this.backendRefinement.confirm(body.token, req.user.userId, body.selectedFeatures);
   }
 
   @Post('generate-uml')

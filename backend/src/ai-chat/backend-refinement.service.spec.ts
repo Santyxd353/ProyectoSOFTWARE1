@@ -11,7 +11,7 @@ describe('BackendRefinementService', () => {
   const authorization = { require: jest.fn() };
   const generation = { generateSpringBootProject: jest.fn() };
   let service: BackendRefinementService;
-  let messagesCreate: jest.Mock;
+  let generate: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -31,26 +31,21 @@ describe('BackendRefinementService', () => {
       success: true,
       revisionId: 'revision-2',
     });
-    messagesCreate = jest.fn().mockResolvedValue({
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
+    generate = jest.fn().mockResolvedValue(JSON.stringify({
           summary: 'Add operational safeguards',
           changes: [
             { feature: 'HEALTH_ENDPOINT', rationale: 'Expose local health checks' },
             { feature: 'REQUEST_LOGGING', rationale: 'Trace requests during tests' },
           ],
           warnings: [],
-        }),
-      }],
-    });
+        }));
     service = new BackendRefinementService(
       prisma as any,
       config as any,
       authorization as any,
       generation as any,
     );
-    (service as any).anthropic = { messages: { create: messagesCreate } };
+    (service as any).cloud = { generate };
   });
 
   it('redacts secrets before sending the instruction to AI and returning its summary', async () => {
@@ -60,14 +55,14 @@ describe('BackendRefinementService', () => {
       'Add logging; password=hunter2 and Bearer abc.def.ghi',
     );
 
-    const request = messagesCreate.mock.calls[0][0];
+    const request = generate.mock.calls[0][0];
     expect(JSON.stringify(request)).not.toContain('hunter2');
     expect(JSON.stringify(request)).not.toContain('abc.def.ghi');
     expect(result.promptSummary).not.toContain('hunter2');
     expect(result.promptSummary).toContain('[REDACTED]');
   });
 
-  it('uses the configured current model with thinking disabled', async () => {
+  it('uses the configured current model for a JSON plan', async () => {
     config.get.mockImplementation((key: string) => ({
       ANTHROPIC_API_KEY: 'test-key',
       AI_MODEL_MAIN: 'claude-sonnet-custom',
@@ -79,13 +74,13 @@ describe('BackendRefinementService', () => {
       authorization as any,
       generation as any,
     );
-    (service as any).anthropic = { messages: { create: messagesCreate } };
+    (service as any).cloud = { generate };
 
     const result = await service.propose('diagram-1', 'user-1', 'Add a health endpoint');
 
-    expect(messagesCreate).toHaveBeenCalledWith(expect.objectContaining({
+    expect(generate).toHaveBeenCalledWith(expect.objectContaining({
       model: 'claude-sonnet-custom',
-      thinking: { type: 'disabled' },
+      json: true,
     }));
     expect(result.engine).toBe('claude-sonnet-custom');
   });
@@ -104,9 +99,7 @@ describe('BackendRefinementService', () => {
   });
 
   it('rejects an AI response outside the supported refinement schema', async () => {
-    messagesCreate.mockResolvedValue({
-      content: [{ type: 'text', text: JSON.stringify({ summary: 'unsafe', changes: [{ feature: 'WRITE_ANY_FILE', rationale: 'no' }] }) }],
-    });
+    generate.mockResolvedValue(JSON.stringify({ summary: 'unsafe', changes: [{ feature: 'WRITE_ANY_FILE', rationale: 'no' }] }));
 
     await expect(service.propose('diagram-1', 'user-1', 'Change everything'))
       .rejects.toBeInstanceOf(BadRequestException);
@@ -151,5 +144,59 @@ describe('BackendRefinementService', () => {
         modelVersion: 8,
       }),
     );
+  });
+
+  it('publishes only a selected nonempty subset signed into the proposal', async () => {
+    const proposal = await service.propose('diagram-1', 'user-1', 'Add health and logs');
+
+    await (service as any).confirm(proposal.token, 'user-1', ['REQUEST_LOGGING']);
+
+    expect(generation.generateSpringBootProject).toHaveBeenCalledWith(
+      'diagram-1', 'user-1', expect.objectContaining({ features: ['REQUEST_LOGGING'] }),
+    );
+  });
+
+  it('rejects an empty or injected refinement selection without publishing', async () => {
+    const proposal = await service.propose('diagram-1', 'user-1', 'Add health and logs');
+
+    await expect((service as any).confirm(proposal.token, 'user-1', []))
+      .rejects.toBeInstanceOf(BadRequestException);
+    await expect((service as any).confirm(proposal.token, 'user-1', ['API_DOCUMENTATION']))
+      .rejects.toBeInstanceOf(BadRequestException);
+    expect(generation.generateSpringBootProject).not.toHaveBeenCalled();
+  });
+
+  it('proposes through Gemini without publishing before confirmation', async () => {
+    config.get.mockImplementation((key: string) => ({
+      AI_PROVIDER: 'gemini',
+      GEMINI_API_KEY: 'test-key',
+      AI_REFINEMENT_SECRET: 'test-refinement-secret',
+    })[key]);
+    service = new BackendRefinementService(
+      prisma as any, config as any, authorization as any, generation as any,
+    );
+    (service as any).cloud = { generate };
+
+    const result = await service.propose('diagram-1', 'user-1', 'Add a health endpoint');
+
+    expect(result.engine).toBe('gemini-3.8-flash');
+    expect(generate).toHaveBeenCalledWith(expect.objectContaining({ json: true }));
+    expect(generation.generateSpringBootProject).not.toHaveBeenCalled();
+  });
+
+  it('returns service unavailable when Gemini denies the project', async () => {
+    config.get.mockImplementation((key: string) => ({
+      AI_PROVIDER: 'gemini', GEMINI_API_KEY: 'test-key',
+    })[key]);
+    service = new BackendRefinementService(
+      prisma as any, config as any, authorization as any, generation as any,
+    );
+    (service as any).cloud = {
+      generate: jest.fn().mockRejectedValue(new Error('Gemini HTTP 403: PERMISSION_DENIED')),
+    };
+
+    await expect(service.propose('diagram-1', 'user-1', 'Add a health endpoint'))
+      .rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(generation.generateSpringBootProject).not.toHaveBeenCalled();
   });
 });

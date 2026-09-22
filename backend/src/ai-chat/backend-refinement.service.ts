@@ -1,11 +1,11 @@
 import { BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Anthropic from '@anthropic-ai/sdk';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { AuthorizationService } from '../authorization/authorization.service';
 import { CodeGenerationService } from '../code-generation/code-generation.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiProviderConfig, resolveAiProviderConfig } from './ai-provider.config';
+import { aiProviderKeyName, AiProviderConfig, resolveAiProviderConfig } from './ai-provider.config';
+import { CloudAiClient } from './cloud-ai.client';
 
 export const BACKEND_REFINEMENT_FEATURES = [
   'HEALTH_ENDPOINT',
@@ -23,7 +23,7 @@ type RefinementPlan = {
 
 @Injectable()
 export class BackendRefinementService {
-  private readonly anthropic: Anthropic | null;
+  private readonly cloud: CloudAiClient;
   private readonly consumedTokens = new Set<string>();
   private readonly aiConfig: AiProviderConfig;
   private now = () => Date.now();
@@ -35,15 +35,13 @@ export class BackendRefinementService {
     private readonly generation: CodeGenerationService,
   ) {
     this.aiConfig = resolveAiProviderConfig(this.config);
-    this.anthropic = this.aiConfig.apiKey
-      ? new Anthropic({ apiKey: this.aiConfig.apiKey })
-      : null;
+    this.cloud = new CloudAiClient(this.aiConfig);
   }
 
   async propose(diagramId: string, userId: string, instruction: string) {
     if (!this.aiConfig.configured) {
       throw new ServiceUnavailableException(
-        'Cloud AI is not configured. Set ANTHROPIC_API_KEY to enable backend refinement.',
+        `Cloud AI is not configured. Set ${aiProviderKeyName(this.aiConfig.provider)} to enable backend refinement.`,
       );
     }
     const diagram = await this.prisma.diagram.findUnique({ where: { id: diagramId } });
@@ -52,22 +50,28 @@ export class BackendRefinementService {
 
     const promptSummary = this.sanitizeInstruction(instruction);
     if (!promptSummary) throw new BadRequestException('Refinement instruction is required');
-    const message = await this.anthropic.messages.create({
+    const prompt = [
+      'Act as a backend architect. Select only supported deterministic improvements.',
+      'Return JSON only with: summary (string), changes (array of {feature,rationale}), warnings (string array).',
+      `Allowed features: ${BACKEND_REFINEMENT_FEATURES.join(', ')}. Do not return source code, paths, commands, or credentials.`,
+      `Confirmed UML snapshot: ${JSON.stringify(diagram.data)}`,
+      `User instruction: ${promptSummary}`,
+    ].join('\n');
+    let text: string;
+    try {
+      text = await this.cloud.generate({
       model: this.aiConfig.mainModel,
-      max_tokens: 1200,
-      thinking: { type: 'disabled' },
-      messages: [{
-        role: 'user',
-        content: [
-          'Act as a backend architect. Select only supported deterministic improvements.',
-          'Return JSON only with: summary (string), changes (array of {feature,rationale}), warnings (string array).',
-          `Allowed features: ${BACKEND_REFINEMENT_FEATURES.join(', ')}. Do not return source code, paths, commands, or credentials.`,
-          `Confirmed UML snapshot: ${JSON.stringify(diagram.data)}`,
-          `User instruction: ${promptSummary}`,
-        ].join('\n'),
-      }],
-    });
-    const text = message.content?.[0]?.type === 'text' ? message.content[0].text : '';
+      maxTokens: 1200,
+      json: true,
+      prompt,
+      });
+    } catch (error) {
+      const denied = this.aiConfig.provider === 'gemini' &&
+        error instanceof Error && error.message.includes('HTTP 403: PERMISSION_DENIED');
+      throw new ServiceUnavailableException(denied
+        ? 'El proyecto de Google denegó acceso a Gemini.'
+        : 'La IA en la nube no está disponible para el refinamiento.');
+    }
     const plan = this.parsePlan(text);
     const features = [...new Set(plan.changes.map((change) => change.feature))];
     const payload = {
@@ -96,7 +100,7 @@ export class BackendRefinementService {
     };
   }
 
-  async confirm(token: string, userId: string) {
+  async confirm(token: string, userId: string, selectedFeatures?: string[]) {
     const tokenHash = createHash('sha256').update(token).digest('hex');
     if (this.consumedTokens.has(tokenHash)) {
       throw new BadRequestException('Backend refinement token was already used');
@@ -108,10 +112,17 @@ export class BackendRefinementService {
     if (payload.exp < this.now()) {
       throw new BadRequestException('Backend refinement token expired');
     }
+    const proposed = payload.features as string[];
+    const features = selectedFeatures === undefined ? proposed : selectedFeatures;
+    if (!Array.isArray(features) || features.length === 0 ||
+      new Set(features).size !== features.length ||
+      features.some((feature) => !proposed.includes(feature))) {
+      throw new BadRequestException('Select at least one proposed refinement');
+    }
     this.consumedTokens.add(tokenHash);
     try {
       return await this.generation.generateSpringBootProject(payload.diagramId, userId, {
-        features: payload.features,
+        features,
         engine: payload.engine,
         promptSummary: payload.promptSummary,
         modelVersion: payload.modelVersion,

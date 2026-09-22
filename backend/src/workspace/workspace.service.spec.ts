@@ -15,6 +15,7 @@ describe('WorkspaceService member management', () => {
       delete: jest.fn(),
       upsert: jest.fn(),
     },
+    diagram: { findMany: jest.fn() },
     auditEvent: { create: jest.fn() },
     $transaction: jest.fn(),
   };
@@ -23,6 +24,7 @@ describe('WorkspaceService member management', () => {
     getAccess: jest.fn(),
   };
   const audit = { record: jest.fn() };
+  const realtime = { revokeWorkspaceAccess: jest.fn() };
   let service: WorkspaceService;
 
   beforeEach(() => {
@@ -45,6 +47,7 @@ describe('WorkspaceService member management', () => {
       prisma as any,
       authorization as any,
       audit as any,
+      realtime as any,
     );
   });
 
@@ -149,15 +152,22 @@ describe('WorkspaceService member management', () => {
     prisma.workspaceCollaborator.findFirst.mockResolvedValue({
       id: 'member-1',
       workspaceId: 'workspace-1',
+      userId: 'viewer-1',
       role: Role.VIEWER,
     });
     prisma.workspaceCollaborator.delete.mockResolvedValue({ id: 'member-1' });
+    prisma.diagram.findMany.mockResolvedValue([{ id: 'diagram-1' }, { id: 'diagram-2' }]);
 
     await expect(
       service.removeMember('workspace-1', 'owner-1', 'member-1'),
     ).resolves.toEqual({ message: 'Member removed' });
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: AuditAction.MEMBER_REMOVED }),
+    );
+    expect(realtime.revokeWorkspaceAccess).toHaveBeenCalledWith(
+      'workspace-1',
+      'viewer-1',
+      ['diagram-1', 'diagram-2'],
     );
   });
 

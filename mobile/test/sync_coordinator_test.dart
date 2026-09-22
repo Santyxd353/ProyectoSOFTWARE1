@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:proyecto_software1_mobile/core/api/api_client.dart';
 import 'package:proyecto_software1_mobile/core/storage/local_store.dart';
@@ -75,8 +77,102 @@ void main() {
     );
     await coordinator.start();
     await coordinator.syncNow();
-    expect(store.saved, [operation]);
+    expect(store.saved.single.id, operation.id);
+    expect(store.saved.single.attemptCount, 1);
     expect(coordinator.status, SyncStatus.reviewRequired);
+  });
+
+  test('clears an operation already confirmed by the server after a lost acknowledgement', () async {
+    final store = MemorySyncStore([operation]);
+    final coordinator = SyncCoordinator(store: store, apply: (_) async => {
+      'status': 'DUPLICATE', 'version': 2,
+    });
+    await coordinator.start();
+    final report = await coordinator.syncNow();
+    expect(report.applied, hasLength(1));
+    expect(store.saved, isEmpty);
+  });
+
+  test('coalesces concurrent reconnect attempts into one server replay', () async {
+    final reply = Completer<Map<String, dynamic>>();
+    final store = MemorySyncStore([operation]);
+    var calls = 0;
+    final coordinator = SyncCoordinator(store: store, apply: (_) {
+      calls++;
+      return reply.future;
+    });
+    await coordinator.start();
+    final first = coordinator.syncNow();
+    final second = coordinator.syncNow();
+    await Future<void>.delayed(Duration.zero);
+    expect(calls, 1);
+    reply.complete({'status': 'APPLIED', 'version': 2});
+    await Future.wait([first, second]);
+    expect(store.saved, isEmpty);
+  });
+
+  test('does not coalesce a new edit into an operation already in flight', () async {
+    final reply = Completer<Map<String, dynamic>>();
+    final store = MemorySyncStore([operation]);
+    final coordinator = SyncCoordinator(
+      store: store,
+      apply: (_) => reply.future,
+    );
+    await coordinator.start();
+
+    final syncing = coordinator.syncNow();
+    await Future<void>.delayed(Duration.zero);
+    final second = operation.copyWith(
+      id: 'android-1:2',
+      clientSequence: 2,
+      payload: {'classes': [{'id': 'class-1', 'name': 'Latest'}]},
+    );
+    await coordinator.enqueue(second);
+    reply.complete({'status': 'APPLIED', 'version': 2});
+    await syncing;
+
+    expect(store.saved, [second]);
+    expect(coordinator.pending, [second]);
+    expect(coordinator.status, SyncStatus.pending);
+  });
+
+  test('sends the latest coalesced payload for an operation waiting behind another', () async {
+    final firstReply = Completer<Map<String, dynamic>>();
+    final second = operation.copyWith(
+      id: 'android-1:2',
+      entityId: 'diagram-2',
+      clientSequence: 2,
+      payload: {'classes': [{'id': 'class-2', 'name': 'Initial'}]},
+    );
+    final sent = <SyncOperation>[];
+    final store = MemorySyncStore([operation, second]);
+    final coordinator = SyncCoordinator(
+      store: store,
+      apply: (item) async {
+        sent.add(item);
+        if (item.id == operation.id) return firstReply.future;
+        return {'status': 'APPLIED', 'version': 3};
+      },
+    );
+    await coordinator.start();
+
+    final syncing = coordinator.syncNow();
+    await Future<void>.delayed(Duration.zero);
+    await coordinator.enqueue(
+      second.copyWith(
+        id: 'android-1:3',
+        clientSequence: 3,
+        payload: {'classes': [{'id': 'class-2', 'name': 'Latest'}]},
+      ),
+    );
+    firstReply.complete({'status': 'APPLIED', 'version': 2});
+    await syncing;
+
+    expect(sent, hasLength(2));
+    expect(sent.last.payload, {
+      'classes': [{'id': 'class-2', 'name': 'Latest'}],
+    });
+    expect(store.saved, isEmpty);
   });
 
   test('backs off transient failures without deleting the operation', () async {
@@ -105,7 +201,8 @@ void main() {
     await coordinator.start();
     final report = await coordinator.syncNow();
     expect(report.conflictId, 'conflict-1');
-    expect(store.saved, [operation]);
+    expect(store.saved.single.id, operation.id);
+    expect(store.saved.single.attemptCount, 1);
     expect(coordinator.status, SyncStatus.conflict);
   });
 

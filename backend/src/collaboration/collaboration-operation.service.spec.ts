@@ -6,6 +6,7 @@ describe('CollaborationOperationService', () => {
       id: 'diagram-1',
       workspaceId: 'workspace-1',
       version: 3,
+      archivedAt: null as Date | null,
       data: {
         classes: [{ id: 'class-1', name: 'Original' }],
         relations: [],
@@ -56,6 +57,13 @@ describe('CollaborationOperationService', () => {
             ),
           },
         })),
+        findFirst: jest.fn(async ({ where }: any) =>
+          operations.find((item) =>
+            item.diagramId === where.diagramId &&
+            item.baseVersion === where.baseVersion &&
+            item.status === where.status,
+          ) ?? null,
+        ),
         create: jest.fn(async ({ data }: any) => {
           const created = { id: `operation-${operations.length + 1}`, ...data };
           operations.push(created);
@@ -112,6 +120,7 @@ describe('CollaborationOperationService', () => {
       conflicts,
       audits,
       currentDiagram: () => diagram,
+      archiveDiagram: () => { diagram = { ...diagram, archivedAt: new Date('2026-09-22T12:00:00Z') }; },
     };
   }
 
@@ -121,6 +130,7 @@ describe('CollaborationOperationService', () => {
     deviceId: 'browser-abc',
     clientSequence: 1,
     baseVersion: 3,
+    baseData: { classes: [{ id: 'class-1', name: 'Original' }], relations: [] },
     changes: {
       type: 'full_update' as const,
       data: {
@@ -226,6 +236,168 @@ describe('CollaborationOperationService', () => {
     expect(harness.conflicts).toHaveLength(1);
   });
 
+  it('rejects durable edits after a diagram is archived', async () => {
+    const harness = createHarness();
+    harness.archiveDiagram();
+
+    await expect(harness.service.apply(edit)).rejects.toThrow(
+      'Archived diagrams cannot be edited',
+    );
+    expect(harness.operations).toHaveLength(0);
+  });
+
+  it('does not disclose a different diagram through a colliding device sequence', async () => {
+    const harness = createHarness();
+    harness.operations.push({
+      id: 'foreign-operation', diagramId: 'foreign-diagram', authorId: 'intruder',
+      deviceId: edit.deviceId, clientSequence: edit.clientSequence,
+      serverSequence: 1, resultVersion: 99, status: 'APPLIED',
+      afterData: { classes: [{ id: 'secret', name: 'Private' }], relations: [] },
+    });
+    await expect(harness.service.apply(edit)).rejects.toThrow('Device sequence already used');
+  });
+
+  it('automatically merges independent stale class additions using the server baseline', async () => {
+    const harness = createHarness();
+    await harness.service.apply({
+      ...edit,
+      changes: { type: 'full_update', data: {
+        classes: [
+          { id: 'class-1', name: 'Original' },
+          { id: 'remote', name: 'Remota' },
+        ],
+        relations: [],
+      } },
+    });
+
+    const result = await harness.service.apply({
+      ...edit,
+      deviceId: 'android-1',
+      changes: { type: 'full_update', data: {
+        classes: [
+          { id: 'class-1', name: 'Original' },
+          { id: 'local', name: 'Local' },
+        ],
+        relations: [],
+      } },
+    });
+
+    expect(result.status).toBe('APPLIED');
+    expect(result).toMatchObject({ autoMerged: true, data: {
+      classes: [
+        { id: 'class-1', name: 'Original' },
+        { id: 'remote', name: 'Remota' },
+        { id: 'local', name: 'Local' },
+      ],
+    } });
+    expect(harness.currentDiagram().version).toBe(5);
+    expect(harness.currentDiagram().data.classes).toEqual([
+      { id: 'class-1', name: 'Original' },
+      { id: 'remote', name: 'Remota' },
+      { id: 'local', name: 'Local' },
+    ]);
+    expect(harness.conflicts).toHaveLength(0);
+  });
+
+  it('rejects automatic merging when an optimistic client baseline differs from server history', async () => {
+    const harness = createHarness();
+    await harness.service.apply({ ...edit, changes: { type: 'full_update', data: {
+      classes: [{ id: 'class-1', name: 'Original' }, { id: 'remote', name: 'Remote' }], relations: [],
+    } } });
+    const result = await harness.service.apply({
+      ...edit, deviceId: 'android-1', baseData: { classes: [], relations: [] },
+      changes: { type: 'full_update', data: {
+        classes: [{ id: 'class-1', name: 'Original' }, { id: 'local', name: 'Local' }], relations: [],
+      } },
+    });
+    expect(result.status).toBe('CONFLICT');
+    expect(harness.currentDiagram().data.classes).not.toContainEqual({ id: 'local', name: 'Local' });
+  });
+
+  it('preserves remote classes across two sequential offline edits with one confirmed baseline', async () => {
+    const harness = createHarness();
+    await harness.service.apply({ ...edit, changes: { type: 'full_update', data: {
+      classes: [{ id: 'class-1', name: 'Original' }, { id: 'remote-b', name: 'B' }], relations: [],
+    } } });
+    await harness.service.apply({ ...edit, clientSequence: 2, baseVersion: 4,
+      baseData: { classes: [{ id: 'class-1', name: 'Original' }, { id: 'remote-b', name: 'B' }], relations: [] },
+      changes: { type: 'full_update', data: {
+        classes: [{ id: 'class-1', name: 'Original' }, { id: 'remote-b', name: 'B' }, { id: 'remote-d', name: 'D' }], relations: [],
+      } },
+    });
+    const first = await harness.service.apply({ ...edit, deviceId: 'android-1', changes: { type: 'full_update', data: {
+      classes: [{ id: 'class-1', name: 'Original' }, { id: 'local-a', name: 'A' }], relations: [],
+    } } });
+    const second = await harness.service.apply({ ...edit, deviceId: 'android-1', clientSequence: 2,
+      changes: { type: 'full_update', data: {
+        classes: [{ id: 'class-1', name: 'Original' }, { id: 'local-a', name: 'A' }, { id: 'local-c', name: 'C' }], relations: [],
+      } },
+    });
+    expect(first.status).toBe('APPLIED');
+    expect(second.status).toBe('APPLIED');
+    expect(harness.currentDiagram().data.classes.map((item: any) => item.id)).toEqual([
+      'class-1', 'remote-b', 'remote-d', 'local-a', 'local-c',
+    ]);
+  });
+
+  it('returns the merged snapshot when an automatically merged operation is retried', async () => {
+    const harness = createHarness();
+    await harness.service.apply({ ...edit, changes: { type: 'full_update', data: {
+      classes: [{ id: 'class-1', name: 'Original' }, { id: 'remote', name: 'Remote' }], relations: [],
+    } } });
+    const stale = { ...edit, deviceId: 'android-1', changes: { type: 'full_update' as const, data: {
+      classes: [{ id: 'class-1', name: 'Original' }, { id: 'local', name: 'Local' }], relations: [],
+    } } };
+    await harness.service.apply(stale);
+    const retry = await harness.service.apply(stale);
+    expect(retry).toMatchObject({ status: 'DUPLICATE', autoMerged: true, data: {
+      classes: [
+        { id: 'class-1', name: 'Original' },
+        { id: 'remote', name: 'Remote' },
+        { id: 'local', name: 'Local' },
+      ],
+    } });
+  });
+
+  it('merges independent properties but keeps overlapping edits as conflicts', async () => {
+    const harness = createHarness();
+    await harness.service.apply({ ...edit, changes: { type: 'full_update', data: {
+      classes: [{ id: 'class-1', name: 'Original', description: 'Remota' }],
+      relations: [],
+    } } });
+    const independent = await harness.service.apply({
+      ...edit, deviceId: 'android-1', changes: { type: 'full_update', data: {
+        classes: [{ id: 'class-1', name: 'Local' }], relations: [],
+      } },
+    });
+    expect(independent.status).toBe('APPLIED');
+    expect(harness.currentDiagram().data.classes[0]).toEqual({
+      id: 'class-1', name: 'Local', description: 'Remota',
+    });
+
+    const overlapping = await harness.service.apply({
+      ...edit, deviceId: 'android-2', changes: { type: 'full_update', data: {
+        classes: [{ id: 'class-1', name: 'Otra' }], relations: [],
+      } },
+    });
+    expect(overlapping.status).toBe('CONFLICT');
+    expect(harness.currentDiagram().data.classes[0].name).toBe('Local');
+  });
+
+  it('does not merge a relation to a class removed remotely', async () => {
+    const harness = createHarness();
+    await harness.service.apply({ ...edit, changes: { type: 'full_update', data: {
+      classes: [], relations: [],
+    } } });
+    const result = await harness.service.apply({
+      ...edit, deviceId: 'android-1', changes: { type: 'full_update', data: {
+        classes: [{ id: 'class-1', name: 'Original' }],
+        relations: [{ id: 'relation-1', sourceClassId: 'class-1', targetClassId: 'class-1' }],
+      } },
+    });
+    expect(result.status).toBe('CONFLICT');
+  });
+
   it('replays only later events in server sequence order', async () => {
     const harness = createHarness();
     await harness.service.apply(edit);
@@ -296,5 +468,47 @@ describe('CollaborationOperationService', () => {
       action: 'SYNC_CONFLICT_RESOLVED',
       actorId: 'editor-1',
     });
+  });
+
+  it('preserves edits made after conflict creation when resolving it', async () => {
+    const harness = createHarness();
+    const conflicted = await harness.service.apply({
+      ...edit,
+      baseVersion: 2,
+      changes: { type: 'full_update', data: {
+        classes: [{ id: 'class-1', name: 'Local' }], relations: [],
+      } },
+    });
+    await harness.service.apply({
+      ...edit,
+      clientSequence: 2,
+      changes: { type: 'full_update', data: {
+        classes: [
+          { id: 'class-1', name: 'Original' },
+          { id: 'class-2', name: 'Nueva remota' },
+        ],
+        relations: [],
+      } },
+    });
+
+    await harness.service.resolveConflict(conflicted.conflictId!, 'editor-1', {
+      classes: [{ id: 'class-1', name: 'Combinada' }], relations: [],
+    });
+
+    expect(harness.currentDiagram().data.classes).toEqual([
+      { id: 'class-1', name: 'Combinada' },
+      { id: 'class-2', name: 'Nueva remota' },
+    ]);
+  });
+
+  it('rejects conflict resolution after a diagram is archived', async () => {
+    const harness = createHarness();
+    const conflicted = await harness.service.apply({ ...edit, baseVersion: 2 });
+    harness.archiveDiagram();
+
+    await expect(harness.service.resolveConflict(
+      conflicted.conflictId!, 'editor-1', edit.changes.data,
+    )).rejects.toThrow('Archived diagrams cannot be edited');
+    expect(harness.conflicts[0].status).toBe('PENDING');
   });
 });

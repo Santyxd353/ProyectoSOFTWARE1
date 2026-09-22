@@ -1,8 +1,8 @@
 # Trazabilidad PUDS - implementación local
 
-Fecha de verificación: 20 de septiembre de 2026.
+Fecha de verificación: 21 de septiembre de 2026.
 
-Estado del alcance: los RF-01 a RF-32 y CU-01 a CU-25 tienen implementación local comprobada en el monorepositorio. La paridad Android se verificó con pruebas unitarias, de widgets, integración contra la API real y una APK instalada en un emulador Android 15 (API 35). El despliegue en Google Cloud continúa fuera de esta etapa.
+Estado del alcance: los RF-01 a RF-32 y CU-01 a CU-25 tienen implementación local comprobada en el monorepositorio. La paridad Android se verificó con pruebas unitarias, de widgets, integración contra la API real y una APK instalada en un emulador Android 15 (API 35). La IA cloud usa el adaptador común con Groq/Qwen 3.8 como proveedor principal; texto, JSON e imagen fueron verificados contra la API real. Gemini queda como alternativa. El piloto se despliega en una VM de Azure.
 
 ## Requisitos funcionales
 
@@ -10,12 +10,12 @@ Estado del alcance: los RF-01 a RF-32 y CU-01 a CU-25 tienen implementación loc
 | --- | --- | --- | --- |
 | RF-01 | Registrar usuarios e iniciar o cerrar una sesión protegida. | `backend/src/auth/auth.service.ts`, `backend/src/auth/auth.service.spec.ts`, `frontend/stores/auth.ts` | Implementado y probado; registro e inicio exitosos quedan auditados. |
 | RF-02 | Crear, consultar y organizar espacios de trabajo UML. | `backend/src/workspace/workspace.service.ts`, `frontend/app/dashboard/page.tsx` | Implementado. |
-| RF-03 | Editar clases, atributos, operaciones y relaciones en un lienzo gráfico. | `frontend/components/editor/UMLEditor.tsx`, `ClassEditor.tsx`, `RelationshipEditor.tsx` | Implementado. |
+| RF-03 | Editar clases, atributos, operaciones y relaciones en un lienzo gráfico. | `frontend/components/editor/UMLEditor.tsx`, `UMLSidebar.tsx`, `frontend/lib/uml-drag-payload.ts`, `frontend/tests/uml-drag-payload.test.mjs`, `ClassEditor.tsx`, `RelationshipEditor.tsx` | Implementado; el arrastre serializa solo datos UML, sin elementos React circulares. |
 | RF-04 | Distribuir cambios del diagrama entre participantes conectados. | `backend/src/collaboration/collaboration.gateway.ts`, `collaboration-operation.service.ts`, `frontend/hooks/useSocket.ts` | Implementado; se persiste antes de transmitir. |
 | RF-05 | Invitar personas y controlar su participación en un proyecto. | `backend/src/invitation/invitation.service.ts`, `frontend/components/workspace/MemberManagement.tsx` | Implementado y probado. |
 | RF-06 | Archivar modelos sin perder su trazabilidad histórica. | `backend/src/diagram/diagram.service.ts`, `frontend/lib/diagram-lifecycle.ts` | Implementado y probado. |
 | RF-07 | Transformar un diagrama válido en un backend Spring Boot reproducible. | `backend/src/code-generation/code-generation.service.ts`, `backend/templates/springboot/` | Implementado; generación real recorrida localmente. |
-| RF-08 | Crear o completar modelos UML mediante instrucciones en lenguaje natural. | `backend/src/ai-chat/ai-chat.service.ts`, `frontend/components/chat/AIChatInterface.tsx` | Implementado con propuesta y confirmación humana. |
+| RF-08 | Crear o completar modelos UML mediante instrucciones en lenguaje natural. | `backend/src/ai-chat/ai-chat.service.ts`, `frontend/lib/uml-proposal.ts`, `frontend/components/chat/AIChatInterface.tsx` | Propuesta con diferencias visibles y selección de clases/relaciones antes de confirmar; Groq/Qwen verificado con generación real. |
 | RF-09 | Configurar metadatos, permisos y opciones del espacio de trabajo. | `backend/src/workspace/workspace.service.ts`, `frontend/components/workspace/WorkspaceSettings.tsx` | Implementado y probado. |
 | RF-10 | Producir colecciones de pruebas para la API generada. | `backend/src/code-generation/api-artifacts.ts`, `api-artifacts.spec.ts` | Implementado: OpenAPI 3.0.3 y Postman 2.1. |
 | RF-11 | Generar una aplicación Flutter conectada a la API del proyecto. | `backend/src/code-generation/code-generation.service.ts`, `backend/templates/flutter/` | Implementado y probado. |
@@ -23,11 +23,11 @@ Estado del alcance: los RF-01 a RF-32 y CU-01 a CU-25 tienen implementación loc
 | RF-13 | Mantener revisiones inmutables y comparables de cada generación. | `backend/prisma/schema.prisma`, `backend/src/code-repository/code-repository.service.spec.ts` | Implementado y probado. |
 | RF-14 | Aceptar solicitudes de IA por texto y por audio. | `mobile/lib/main.dart`, `mobile/lib/app_controller.dart` | Implementado en Android con dictado y lectura de respuesta. |
 | RF-15 | Ejecutar comandos UML básicos sin conexión a internet. | `mobile/lib/core/ai/local_model_runtime.dart`, `function_catalog.dart`, `local_ai_engine_test.dart` | Implementado con FunctionGemma 270M opcional y fallback básico identificado; las acciones se validan antes de modificar el diagrama. |
-| RF-16 | Sincronizar operaciones móviles pendientes al recuperar conectividad. | `mobile/lib/app_controller.dart`, `mobile/lib/core/api/api_client.dart`, `backend/src/collaboration/collaboration-operation.service.ts` | Implementado con cola durable e idempotencia. |
+| RF-16 | Sincronizar operaciones móviles pendientes al recuperar conectividad. | `mobile/lib/app_controller.dart`, `mobile/lib/core/sync/sync_coordinator.dart`, `backend/src/collaboration/collaboration-operation.service.ts` | Cola durable y reintentos idempotentes; un 401 conserva operaciones, el login reanuda el envío y las ediciones consecutivas conservan la base confirmada. |
 | RF-17 | Importar y exportar modelos mediante XMI, JSON y ZIP propio. | `backend/src/diagram-interchange/diagram-interchange.service.ts`, `frontend/app/workspace/[workspaceId]/page.tsx` | Implementado con vista previa, advertencias y confirmación. |
-| RF-18 | Refinar código y decisiones de diseño con una IA en la nube. | `backend/src/ai-chat/backend-refinement.service.ts`, `frontend/components/code-generation/CodeGenerationPanel.tsx` | Implementado; requiere `ANTHROPIC_API_KEY` e internet para una llamada real. Mantiene compatibilidad temporal con `CLAUDE_API_KEY`. |
+| RF-18 | Refinar código y decisiones de diseño con una IA en la nube. | `backend/src/ai-chat/cloud-ai.client.ts`, `backend-refinement.service.ts`, `frontend/components/code-generation/CodeGenerationPanel.tsx` | Selección parcial de funciones firmadas y vista previa de archivos; Groq/Qwen funciona y Gemini conserva fallback explícito ante 403. |
 | RF-19 | Permitir revisión colaborativa del código y su historial. | `backend/src/code-repository/code-repository.service.ts`, `frontend/components/repository/CommentPanel.tsx` | Implementado; comentario de archivo/línea verificado. |
-| RF-20 | Detectar y resolver conflictos conservando ambas variantes. | `backend/src/collaboration/collaboration-operation.service.ts`, `mobile/lib/core/sync/sync_queue.dart` | Implementado y probado. |
+| RF-20 | Detectar y resolver conflictos conservando ambas variantes. | `backend/src/collaboration/collaboration-operation.service.ts`, `diagram-three-way-merge.ts`, `mobile/lib/core/sync/sync_queue.dart` | Los cambios independientes se fusionan con base histórica del servidor; los incompatibles conservan ambas variantes. |
 | RF-21 | Administrar roles OWNER, EDITOR y VIEWER en todos los canales. | `backend/src/authorization/authorization.service.ts`, `frontend/lib/repository-capabilities.ts` | Implementado en REST, WebSocket y descargas. |
 | RF-22 | Descargar, comparar y restaurar revisiones autorizadas. | `backend/src/code-repository/code-repository.controller.ts`, `RevisionCompare.tsx` | Implementado; ZIP, comparación y restauración verificados. |
 | RF-23 | Persistir datos y artefactos fuera de instancias efímeras de ejecución. | `backend/prisma/schema.prisma`, `backend/src/artifact-storage/local-artifact-storage.service.ts` | Implementado localmente en PostgreSQL y `.local`/`artifacts`. |
@@ -47,29 +47,29 @@ Estado del alcance: los RF-01 a RF-32 y CU-01 a CU-25 tienen implementación loc
 | --- | --- | --- | --- |
 | CU-01 | Gestionar acceso al sistema | RF-01, RF-24 | `auth.service.spec.ts`; prueba real de registro, login, perfil y eventos `USER_REGISTERED`/`USER_LOGGED_IN`. |
 | CU-02 | Consultar y administrar proyectos | RF-02, RF-21 | `workspace.service.spec.ts`, dashboard bilingüe. |
-| CU-03 | Construir el modelo UML del dominio | RF-03, RF-24 | Editor React Flow y operación versionada. |
+| CU-03 | Construir el modelo UML del dominio | RF-03, RF-24 | Editor React Flow, operación versionada y prueba de arrastre de clases con ícono React circular. |
 | CU-04 | Sincronizar el diagrama colaborativo | RF-04, RF-24 | `collaboration.gateway.spec.ts`; conexión real con replay. |
 | CU-05 | Incorporar participantes al proyecto | RF-05, RF-21 | `invitation.service.spec.ts` y panel de miembros. |
 | CU-06 | Archivar o retirar diagramas | RF-06, RF-24 | `diagram.service.spec.ts`, confirmación y restauración UI. |
 | CU-07 | Generar backend Spring Boot por reglas | RF-07, RF-12, RF-13 | `code-generation.service.spec.ts`; generación y publicación real. |
-| CU-08 | Construir un modelo con asistencia inteligente | RF-08, RF-18 | IA devuelve propuesta; `AIChatInterface.tsx` exige aplicar o descartar. |
+| CU-08 | Construir un modelo con asistencia inteligente | RF-08, RF-18 | `uml-proposal.test.mjs`: altas/cambios por clase y relación y aplicación parcial; una omisión de IA no borra elementos existentes. La eliminación requiere el editor y confirmación explícita. |
 | CU-09 | Crear y configurar un espacio de trabajo | RF-02, RF-09 | Creación API real y `WorkspaceSettings.tsx`. |
 | CU-10 | Producir una colección de pruebas API | RF-10, RF-13 | `api-artifacts.spec.ts`; archivos `openapi.json` y `postman_collection.json` comprobados en revisión. |
 | CU-11 | Generar una aplicación Flutter | RF-11, RF-12, RF-13 | Generador Flutter por plantillas y publicación en repositorio interno. |
 | CU-12 | Gestionar el repositorio interno de código | RF-12, RF-13, RF-23 | Árbol real de 19 archivos, lectura de OpenAPI y almacenamiento por checksum. |
 | CU-13 | Interactuar con la IA por texto o voz | RF-14, RF-15, RF-18 | Pantalla Android, `speech_to_text`, TTS y `local_ai_engine_test.dart`. |
 | CU-14 | Importar y exportar modelos UML | RF-17, RF-24 | 10 pruebas de intercambio y recorrido HTTP XMI/JSON/ZIP. |
-| CU-15 | Trabajar offline y sincronizar cambios | RF-15, RF-16, RF-20 | `app_controller_sync_test.dart`, `local_store_test.dart`, `sync_queue_test.dart`. |
-| CU-16 | Generar o refinar backend con IA | RF-07, RF-18, RF-24 | `backend-refinement.service.spec.ts`; token firmado, confirmación y manifiesto trazable. |
+| CU-15 | Trabajar offline y sincronizar cambios | RF-15, RF-16, RF-20 | `app_controller_sync_test.dart`: cola conservada y reanudación tras login; `local_store_test.dart`, `sync_queue_test.dart`. |
+| CU-16 | Generar o refinar backend con IA | RF-07, RF-18, RF-24 | `backend-refinement.service.spec.ts`: token firmado, subconjunto validado, selección de archivos y manifiesto trazable. |
 | CU-17 | Revisar colaborativamente código generado | RF-13, RF-19, RF-21 | Comentarios en tiempo real, archivo/línea y permisos probados. |
-| CU-18 | Detectar y resolver conflictos de sincronización | RF-16, RF-20, RF-24 | Conflicto real creado/resuelto; ambas variantes se conservan hasta resolver. |
+| CU-18 | Detectar y resolver conflictos de sincronización | RF-16, RF-20, RF-24 | `diagram-three-way-merge.spec.ts`: fusión de cambios independientes y conflicto explícito para ediciones incompatibles; variantes conservadas. |
 | CU-19 | Administrar roles y permisos | RF-05, RF-21, RF-24 | `authorization.service.spec.ts`, `workspace.service.spec.ts`, autenticación de socket. |
 | CU-20 | Descargar, comparar o restaurar una revisión | RF-13, RF-22, RF-23 | Descarga ZIP 200, comparación de 19 archivos y nueva revisión restaurada. |
 | CU-21 | Gestionar cuenta, proyectos y diagramas desde Android | RF-25, RF-27 | `app_controller_lifecycle_test.dart`, `project_lifecycle_widget_test.dart` y recorrido Android integral aprobado. |
 | CU-22 | Editar un diagrama UML táctil | RF-26, RF-29 | Reductores, lienzo y formularios cubiertos por `diagram_operations_test.dart`, `uml_canvas_controller_test.dart`, `uml_editor_widget_test.dart` y `editor_sheet_navigation_test.dart`; clase y relación pueden cancelarse sin guardar. |
 | CU-23 | Invitar mediante enlace o código | RF-21, RF-28 | Dos usuarios reales crearon y reclamaron un código en el emulador; suites de invitación cubren vencimiento, revocación, rol e idempotencia. |
 | CU-24 | Generar y revisar artefactos desde Android | RF-30 | El recorrido Android generó Spring Boot y Flutter, abrió el árbol, comentó, comparó y descargó un ZIP. |
-| CU-25 | Intercambiar y sincronizar trabajo desde Android | RF-16, RF-20, RF-29, RF-31, RF-32 | Recorrido Android XMI de ida y vuelta y persistencia real de una operación offline entre recreaciones; conflictos y replay cubiertos por pruebas específicas. |
+| CU-25 | Intercambiar y sincronizar trabajo desde Android | RF-16, RF-20, RF-29, RF-31, RF-32 | Recorrido XMI y cola offline; REST difunde operaciones confirmadas por Socket.IO, reintentos duplicados no se retransmiten y una base optimista distinta del historial pasa a conflicto. |
 
 ## Verificación ejecutada
 
@@ -79,12 +79,14 @@ Estado del alcance: los RF-01 a RF-32 y CU-01 a CU-25 tienen implementación loc
 - WebSocket real: JWT aceptado antes de eventos, unión a diagrama y reproducción de una operación persistida.
 - Backend: `npm test -- --runInBand --forceExit --silent` y `npm run build`.
 - Frontend: `npm test`, `npm run type-check` y `npm run build`.
-- Android: Flutter 3.35.7, `flutter analyze` sin observaciones, 69 pruebas Flutter y 2 recorridos de integración en emulador.
+- Android: Flutter 3.35.7, `flutter analyze` sin observaciones, 78 pruebas Flutter y 2 recorridos de integración previos en emulador.
 - El recorrido CU-21..CU-25 usó dos usuarios autenticados, invitación temporal, edición versionada, generación Spring Boot/Flutter, revisión/comentario/comparación/ZIP y reimportación XMI.
 - `npm audit` informa 0 vulnerabilidades en las 804 dependencias del backend y 0 en las 550 del frontend.
 - La APK se compiló, instaló y permaneció activa en Android 15 API 35 sin excepciones fatales.
 - APK generado en `mobile/build/app/outputs/flutter-apk/app-debug.apk`.
+- Cierre de brechas del 22-09-2026: 158 pruebas de backend, 40 de frontend y 78 de Flutter pasan; compilaciones de backend, web y APK debug correctas. El PDF conserva 124 páginas, dos carátulas iguales y 132 anotaciones de navegación en el índice.
+- Azure: `deploy/azure/` incluye unidades systemd, Caddy, plantillas de entorno y runbook. La VM piloto Ubuntu 24.04 está creada; Groq fue validado localmente y la prueba en teléfono físico sigue pendiente. `deploy/gce/` se conserva como alternativa.
 
-La llamada al proveedor Claude no se ejecutó contra una cuenta real porque el entorno local verificado mantiene `ANTHROPIC_API_KEY` vacío. El contrato, selección configurable de modelo, redacción de secretos, validación de esquema, caducidad/autorización del token, ausencia de mutación durante propuesta, modo local explícito y trazabilidad tras confirmación sí están cubiertos por pruebas automatizadas.
+La IA cloud selecciona Groq con `AI_PROVIDER=groq` y mantiene Gemini y Anthropic como alternativas. Chat, UML por texto/imagen y refinamiento usan el mismo adaptador. Groq/Qwen 3.8 respondió HTTP 200 para texto, JSON válido e imagen; la prueba con una imagen mínima inválida fue rechazada correctamente. Las claves Gemini suministradas autentican para listar modelos, pero Google responde `403 PERMISSION_DENIED` al generar. El contrato, redacción de secretos, validación de esquema, caducidad/autorización del token, ausencia de mutación durante propuesta, fallback identificado y trazabilidad tras confirmación están cubiertos por pruebas automatizadas.
 
 FunctionGemma no se incluye dentro de la APK: el usuario descarga o importa el archivo oficial de 284 MB desde **Configuración > IA sin conexión**. El gestor muestra el progreso, comprueba su SHA-256 y permite retirarlo. La integración, el catálogo de herramientas y los límites del fallback están probados; la velocidad y memoria de inferencia deben validarse también en el teléfono Android físico objetivo porque dependen del hardware.

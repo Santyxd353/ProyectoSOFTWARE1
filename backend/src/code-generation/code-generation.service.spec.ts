@@ -164,4 +164,39 @@ describe('CodeGenerationService repository integration', () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it('stores generated projects under the configured persistent root without path traversal', async () => {
+    const previous = process.env.GENERATED_PROJECTS_PATH;
+    const root = path.join(tmpdir(), 'puds-persistent-projects');
+    process.env.GENERATED_PROJECTS_PATH = root;
+    prisma.diagram.findUnique.mockResolvedValueOnce({
+      id: 'diagram-1', name: '../Outside', workspaceId: 'workspace-1', version: 7,
+      data: { classes: [{ id: 'class-1', name: 'User', attributes: [{ id: 'a', name: 'id', type: 'Long', stereotype: 'id' }], methods: [] }], relations: [] },
+    });
+    try {
+      const result = await service.generateSpringBootProject('diagram-1', 'user-1');
+      expect(path.relative(root, result.projectPath).startsWith('..')).toBe(false);
+      expect(result.projectPath).toContain(root);
+    } finally {
+      if (previous === undefined) delete process.env.GENERATED_PROJECTS_PATH;
+      else process.env.GENERATED_PROJECTS_PATH = previous;
+    }
+  });
+
+  it('adds an API documentation guide when only that refinement is selected', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'puds-refinement-docs-'));
+    try {
+      await (service as any).applyBackendRefinement(root, 'com.example.orders', {
+        features: ['API_DOCUMENTATION'],
+        engine: 'gemini-test',
+        promptSummary: 'Document endpoints',
+        modelVersion: 8,
+        planSummary: 'API docs',
+      });
+      expect(await readFile(path.join(root, 'API_DOCUMENTATION.md'), 'utf8'))
+        .toContain('openapi.json');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

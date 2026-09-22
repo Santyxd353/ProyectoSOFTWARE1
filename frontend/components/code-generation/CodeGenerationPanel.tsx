@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Download, Code, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { aiAPI, codeGenAPI } from '@/lib/api';
 import { useI18n } from '@/components/i18n/I18nProvider';
+import { refinementFiles, toggleRefinementFeature } from '@/lib/backend-refinement-selection';
 
 interface CodeGenerationPanelProps {
   diagramId: string;
@@ -18,6 +19,7 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
   const [error, setError] = useState<string | null>(null);
   const [refinementInstruction, setRefinementInstruction] = useState('');
   const [refinementProposal, setRefinementProposal] = useState<any>(null);
+  const [selectedRefinements, setSelectedRefinements] = useState<string[]>([]);
   const [isRefining, setIsRefining] = useState(false);
   const { t } = useI18n();
 
@@ -110,9 +112,9 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
     setIsRefining(true);
     setError(null);
     try {
-      setRefinementProposal(
-        await aiAPI.proposeBackendRefinement(diagramId, refinementInstruction.trim()),
-      );
+      const proposal = await aiAPI.proposeBackendRefinement(diagramId, refinementInstruction.trim());
+      setRefinementProposal(proposal);
+      setSelectedRefinements(proposal.changes.map((change: { feature: string }) => change.feature));
     } catch (error: any) {
       setError(error.response?.data?.message || t('generation.refinement.proposalError'));
     } finally {
@@ -121,11 +123,11 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
   };
 
   const handleConfirmRefinement = async () => {
-    if (!refinementProposal?.token) return;
+    if (!refinementProposal?.token || selectedRefinements.length === 0) return;
     setIsRefining(true);
     setError(null);
     try {
-      const result = await aiAPI.confirmBackendRefinement(refinementProposal.token);
+      const result = await aiAPI.confirmBackendRefinement(refinementProposal.token, selectedRefinements);
       setBackendResult(result);
       setRefinementProposal(null);
       setRefinementInstruction('');
@@ -230,10 +232,25 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
             {refinementProposal && (
               <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3">
                 <p className="text-sm font-medium text-blue-900">{refinementProposal.summary}</p>
-                <ul className="mt-2 space-y-1 text-xs text-blue-800">
+                <fieldset className="mt-2 space-y-2 text-xs text-blue-800">
+                  <legend className="mb-1 font-semibold">{t('generation.refinement.selectChanges')}</legend>
                   {refinementProposal.changes.map((change: any) => (
-                    <li key={change.feature}>• {change.feature}: {change.rationale}</li>
+                    <label key={change.feature} className="flex cursor-pointer gap-2 rounded border border-blue-200 bg-white p-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedRefinements.includes(change.feature)}
+                        onChange={() => setSelectedRefinements((current) => toggleRefinementFeature(current, change.feature))}
+                      />
+                      <span>
+                        <strong>{change.feature}</strong>: {change.rationale}
+                        <span className="mt-1 block font-mono text-[11px] text-blue-700">
+                          {refinementFiles(change.feature).join(', ')}
+                        </span>
+                      </span>
+                    </label>
                   ))}
+                </fieldset>
+                <ul className="mt-2 space-y-1 text-xs text-blue-800">
                   {refinementProposal.warnings.map((warning: string) => (
                     <li key={warning} className="text-amber-800">• {warning}</li>
                   ))}
@@ -244,7 +261,7 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
                 <div className="mt-3 flex gap-2">
                   <button
                     onClick={handleConfirmRefinement}
-                    disabled={isRefining}
+                    disabled={isRefining || selectedRefinements.length === 0}
                     className="flex-1 rounded-md bg-blue-700 px-3 py-2 text-xs font-medium text-white hover:bg-blue-800 disabled:opacity-50"
                   >
                     {t('generation.refinement.apply')}

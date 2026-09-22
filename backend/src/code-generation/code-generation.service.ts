@@ -73,9 +73,9 @@ export class CodeGenerationService {
     this.validateAndNormalizeDiagram(classes);
 
     // Prepare project metadata
-    const projectName = diagram.name.toLowerCase().replace(/\s+/g, '-');
+    const projectName = this.safeProjectName(diagram.name);
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const projectPath = `./generated-projects/${projectName}-${timestamp}`;
+    const projectPath = path.join(this.generatedProjectsRoot(), `${projectName}-${timestamp}`);
     const basePackage = `com.example.${projectName.replace(/-/g, '')}`;
     const dbName = projectName.replace(/-/g, '_');
 
@@ -193,9 +193,9 @@ export class CodeGenerationService {
     this.validateAndNormalizeDiagram(classes);
 
     // Prepare project metadata
-    const projectName = diagram.name.toLowerCase().replace(/\s+/g, '-');
+    const projectName = this.safeProjectName(diagram.name);
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const projectPath = `./generated-projects/${projectName}-flutter-${timestamp}`;
+    const projectPath = path.join(this.generatedProjectsRoot(), `${projectName}-flutter-${timestamp}`);
 
     console.log(`📁 Flutter project path: ${projectPath}`);
 
@@ -995,6 +995,11 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         'utf-8',
       ));
     }
+    if (features.includes('API_DOCUMENTATION')) {
+      writes.push(fs.writeFile(path.join(projectPath, 'API_DOCUMENTATION.md'),
+        '# API documentation\n\nThe generated `openapi.json` describes the REST endpoints and schemas. Import it into an OpenAPI viewer or client generator. The `postman_collection.json` file contains example CRUD requests for Postman. Configure the server URL and credentials before running them.\n',
+        'utf-8'));
+    }
     const traceability = {
       schemaVersion: 'puds-backend-refinement-1',
       engine: refinement.engine,
@@ -1009,6 +1014,15 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
       'utf-8',
     ));
     await Promise.all(writes);
+  }
+
+  private generatedProjectsRoot(): string {
+    return path.resolve(process.env.GENERATED_PROJECTS_PATH || './generated-projects');
+  }
+
+  private safeProjectName(name: string): string {
+    return name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'project';
   }
 
   private async createZipFile(projectPath: string, zipPath: string): Promise<void> {

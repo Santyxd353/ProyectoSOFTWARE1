@@ -2,14 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { DiagramService } from '../diagram/diagram.service';
-import Anthropic from '@anthropic-ai/sdk';
-import * as fs from 'fs';
-import * as path from 'path';
-import { AiProviderConfig, resolveAiProviderConfig } from './ai-provider.config';
+import { aiProviderKeyName, AiProviderConfig, resolveAiProviderConfig } from './ai-provider.config';
+import { CloudAiClient } from './cloud-ai.client';
 
 @Injectable()
 export class AiChatService {
-  private anthropic: Anthropic | null;
+  private readonly cloud: CloudAiClient;
   private readonly aiConfig: AiProviderConfig;
   private readonly MaxTokens = 8192;
 
@@ -19,9 +17,7 @@ export class AiChatService {
     private diagramService: DiagramService,
   ) {
     this.aiConfig = resolveAiProviderConfig(this.configService);
-    this.anthropic = this.aiConfig.apiKey
-      ? new Anthropic({ apiKey: this.aiConfig.apiKey })
-      : null;
+    this.cloud = new CloudAiClient(this.aiConfig);
   }
 
   async generateUMLFromPrompt(prompt: string, diagramId: string, userId: string) {
@@ -132,24 +128,12 @@ CASOS COMUNES DE N:N:
 - ESCUELA: Estudiante <-> Curso (un estudiante toma varios cursos)
 - COMERCIO: Producto <-> Categoria (un producto puede estar en varias categorías)`;
 
-      const message = await this.anthropic.messages.create({
+      const generatedText = await this.cloud.generate({
         model: this.aiConfig.mainModel,
-        max_tokens: this.MaxTokens,
-        thinking: { type: 'disabled' },
-        messages: [
-          {
-            role: 'user',
-            content: `${systemPrompt}\n\nSolicitud del usuario: ${prompt}\n\nGenera un modelo UML completo y profesional basado en esta solicitud.`
-          }
-        ],
+        maxTokens: this.MaxTokens,
+        json: true,
+        prompt: `${systemPrompt}\n\nSolicitud del usuario: ${prompt}\n\nGenera un modelo UML completo y profesional basado en esta solicitud.`,
       });
-
-      if (!message.content || message.content.length === 0) {
-        throw new Error('Invalid response from Claude API');
-      }
-
-      const generatedText = message.content[0].type === 'text' ? message.content[0].text : '';
-      console.log('📝 Respuesta de Claude:', generatedText.substring(0, 200));
 
       // Clean the response and extract JSON
       let cleanedResponse = generatedText.trim();
@@ -168,14 +152,18 @@ CASOS COMUNES DE N:N:
       }
 
       let umlModel;
+      let usedFallback = false;
       try {
         umlModel = JSON.parse(cleanedResponse);
+        if (!Array.isArray(umlModel?.classes) || !Array.isArray(umlModel?.relations)) {
+          throw new Error('Invalid UML schema');
+        }
         console.log('✅ JSON parseado exitosamente. Clases:', umlModel.classes?.length);
       } catch (parseError) {
-        console.error('❌ Error parseando JSON de Claude:', parseError.message);
-        console.error('Respuesta limpia:', cleanedResponse.substring(0, 300));
+        console.error('❌ Error parseando JSON de IA:', parseError.message);
         // Fallback to a template model
         console.log('🔄 Usando modelo de fallback para:', prompt);
+        usedFallback = true;
         umlModel = this.generateFallbackModel(prompt);
       }
 
@@ -185,11 +173,11 @@ CASOS COMUNES DE N:N:
       // Log the AI generation activity
       await this.prisma.diagramActivity.create({
         data: {
-          action: 'AI_GENERATION' as any,
+          action: (usedFallback ? 'AI_GENERATION_FALLBACK' : 'AI_GENERATION') as any,
           changes: {
             prompt,
             generatedModel: umlModel,
-            aiResponse: cleanedResponse,
+            ...(usedFallback ? { error: 'Invalid cloud UML response' } : { aiResponse: cleanedResponse }),
           },
           userId,
           diagramId,
@@ -199,13 +187,13 @@ CASOS COMUNES DE N:N:
       return {
         success: true,
         model: umlModel,
-        message: 'UML model generated successfully with Claude AI',
-        mode: 'cloud',
-        provider: this.aiConfig.provider,
-        modelName: this.aiConfig.mainModel,
+        message: usedFallback ? 'UML model generated using local fallback' : 'UML model generated successfully with cloud AI',
+        mode: usedFallback ? 'offline-fallback' : 'cloud',
+        provider: usedFallback ? 'local' : this.aiConfig.provider,
+        modelName: usedFallback ? undefined : this.aiConfig.mainModel,
       };
     } catch (error) {
-      console.error('Error generating UML model with Claude:', error);
+      console.error('Error generating UML model with cloud AI:', error instanceof Error ? error.message : 'Unknown error');
 
       // Fallback to template model if AI fails
       const fallbackModel = this.generateFallbackModel(prompt);
@@ -439,7 +427,7 @@ CASOS COMUNES DE N:N:
   async chatWithAI(message: string, diagramId?: string, userId?: string, imageBase64?: string) {
     if (!this.aiConfig.configured) {
       return {
-        response: `La IA en la nube no está configurada. Mientras agregas ANTHROPIC_API_KEY, puedo orientarte localmente sobre: "${message}".`,
+        response: `La IA en la nube no está configurada. Agrega ${aiProviderKeyName(this.aiConfig.provider)} en el backend para activarla.`,
         suggestions: [
           'Crear un sistema de farmacia',
           'Diseñar un e-commerce',
@@ -465,7 +453,7 @@ CASOS COMUNES DE N:N:
         }
       }
 
-      // Si hay una imagen, procesarla con Claude Vision para extraer el diagrama
+      // Si hay una imagen, procesarla con el proveedor de IA configurado.
       if (imageBase64 && diagramId && userId) {
         console.log('🖼️ Imagen detectada, analizando diagrama de clases...');
         const imageProcessingStartTime = Date.now();
@@ -565,42 +553,13 @@ These are TWO separate relationships:
   Relationship 1: Producto to producto_catalogo with { "source": "*", "target": "1" }
   Relationship 2: producto_catalogo to Catalogo with { "source": "1", "target": "*" }`;
 
-        const claudeVisionMessage = await this.anthropic.messages.create({
+        const visionText = await this.cloud.generate({
           model: this.aiConfig.mainModel,
-          max_tokens: 12288,
-          thinking: { type: 'disabled' },
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'image',
-                  source: {
-                    type: 'base64',
-                    media_type: mediaType,
-                    data: base64Data,
-                  },
-                },
-                {
-                  type: 'text',
-                  text: visionPrompt,
-                },
-              ],
-            },
-          ],
+          maxTokens: 12288,
+          json: true,
+          prompt: visionPrompt,
+          image: { mimeType: mediaType, data: base64Data },
         });
-
-        if (!claudeVisionMessage.content || claudeVisionMessage.content.length === 0) {
-          throw new Error('Invalid response from Claude Vision API');
-        }
-
-        const visionText = claudeVisionMessage.content[0].type === 'text' ? claudeVisionMessage.content[0].text : '';
-
-        console.log('\n═══════════════════════════════════════════════════════');
-        console.log('📝 RESPUESTA COMPLETA DE CLAUDE VISION:');
-        console.log('═══════════════════════════════════════════════════════');
-        console.log(visionText);
-        console.log('═══════════════════════════════════════════════════════\n');
 
         // Limpiar y extraer JSON
         let cleanedResponse = visionText.trim();
@@ -620,55 +579,14 @@ These are TWO separate relationships:
           umlModel = JSON.parse(cleanedResponse);
           console.log('✅ Diagrama extraído de imagen. Clases:', umlModel.classes?.length);
 
-          console.log('\n═══════════════════════════════════════════════════════');
-          console.log('🔍 MODELO JSON PARSEADO COMPLETO:');
-          console.log('═══════════════════════════════════════════════════════');
-          console.log(JSON.stringify(umlModel, null, 2));
-          console.log('═══════════════════════════════════════════════════════\n');
-
-          // Log específico de multiplicidades ANTES de validación
-          if (umlModel.relations && umlModel.relations.length > 0) {
-            console.log('🔗 MULTIPLICIDADES EXTRAÍDAS DE LA IMAGEN (RAW):');
-            umlModel.relations.forEach((rel: any, idx: number) => {
-              console.log(`  Relación ${idx + 1}: ${rel.sourceClassId} -> ${rel.targetClassId}`);
-              console.log(`    Tipo: ${rel.type}`);
-              console.log(`    Multiplicidad RAW:`, rel.multiplicity);
-              console.log(`    Tipo de multiplicidad: ${typeof rel.multiplicity}`);
-              if (typeof rel.multiplicity === 'object' && rel.multiplicity) {
-                console.log(`      - source: "${rel.multiplicity.source}"`);
-                console.log(`      - target: "${rel.multiplicity.target}"`);
-              }
-              console.log('');
-            });
-          }
 
         } catch (parseError) {
           console.error('❌ Error parseando JSON de imagen:', parseError.message);
-          console.error('Contenido que intentó parsear:', cleanedResponse?.substring(0, 500));
           throw new Error('No se pudo extraer el diagrama de la imagen. Intenta con una imagen más clara.');
         }
 
         // Validar y arreglar el modelo
         umlModel = this.validateAndFixModel(umlModel);
-
-        // Log DESPUÉS de validación para verificar que no se pierda multiplicidad
-        console.log('\n═══════════════════════════════════════════════════════');
-        console.log('✅ MODELO DESPUÉS DE VALIDACIÓN:');
-        console.log('═══════════════════════════════════════════════════════');
-        if (umlModel.relations && umlModel.relations.length > 0) {
-          console.log('🔗 MULTIPLICIDADES DESPUÉS DE validateAndFixModel:');
-          umlModel.relations.forEach((rel: any, idx: number) => {
-            console.log(`  Relación ${idx + 1}: ${rel.sourceClassId} -> ${rel.targetClassId}`);
-            console.log(`    Tipo: ${rel.type}`);
-            console.log(`    Multiplicidad VALIDADA:`, rel.multiplicity);
-            if (typeof rel.multiplicity === 'object' && rel.multiplicity) {
-              console.log(`      - source: "${rel.multiplicity.source}"`);
-              console.log(`      - target: "${rel.multiplicity.target}"`);
-            }
-            console.log('');
-          });
-        }
-        console.log('═══════════════════════════════════════════════════════\n');
 
         // Registrar la actividad
         await this.prisma.diagramActivity.create({
@@ -703,53 +621,22 @@ These are TWO separate relationships:
         };
       } catch (imageError: any) {
         const processingTime = Date.now() - imageProcessingStartTime;
-        console.error('\n❌❌❌ ERROR PROCESANDO IMAGEN ❌❌❌');
-        console.error(`Tiempo transcurrido: ${processingTime}ms`);
-        console.error(`Error tipo: ${imageError.name}`);
-        console.error(`Error mensaje: ${imageError.message}`);
-        console.error(`Error stack:`, imageError.stack);
-
-        // Guardar la imagen que falló para análisis
-        try {
-          const failedImagesDir = path.join(process.cwd(), 'failed-images');
-          if (!fs.existsSync(failedImagesDir)) {
-            fs.mkdirSync(failedImagesDir, { recursive: true });
-          }
-
-          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-          const fileName = `failed-${timestamp}.jpg`;
-          const filePath = path.join(failedImagesDir, fileName);
-
-          // Extraer base64 data
-          const base64Match = imageBase64.match(/^data:image\/(png|jpeg|jpg|webp|gif);base64,(.+)$/);
-          if (base64Match) {
-            const base64Data = base64Match[2];
-            fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
-            console.log(`💾 Imagen guardada en: ${filePath}`);
-          }
-
-          // Guardar log del error
-          const errorLogPath = path.join(failedImagesDir, `error-${timestamp}.txt`);
-          const errorLog = `
-Timestamp: ${new Date().toISOString()}
-User ID: ${userId}
-Diagram ID: ${diagramId}
-Processing Time: ${processingTime}ms
-Error Type: ${imageError.name}
-Error Message: ${imageError.message}
-Stack Trace:
-${imageError.stack}
-`;
-          fs.writeFileSync(errorLogPath, errorLog);
-          console.log(`📄 Log guardado en: ${errorLogPath}`);
-        } catch (saveError) {
-          console.error('⚠️ No se pudo guardar la imagen/log:', saveError);
-        }
+        const accessDenied = this.aiConfig.provider === 'gemini' &&
+          imageError instanceof Error && imageError.message.includes('HTTP 403: PERMISSION_DENIED');
+        console.error('Error procesando imagen UML:', {
+          durationMs: processingTime,
+          error: imageError instanceof Error ? imageError.message : 'Unknown error',
+        });
 
         // Retornar error amigable al usuario
         return {
-          response: '😅 Lo siento, tuve problemas al analizar esta imagen. Por favor intenta con una imagen más clara o describe el sistema con texto.',
-          suggestions: [
+          response: accessDenied
+            ? 'El proyecto de Google denegó acceso a Gemini. La imagen no se analizó en la nube; revisa el proyecto o usa otra clave con acceso.'
+            : '😅 Lo siento, tuve problemas al analizar esta imagen. Por favor intenta con una imagen más clara o describe el sistema con texto.',
+          suggestions: accessDenied ? [
+            'Describe el sistema con texto',
+            'Verifica el acceso a Gemini en Google',
+          ] : [
             'Intenta con una imagen más simple',
             'Asegúrate de que el diagrama sea legible',
             'Prueba describiendo el sistema con texto',
@@ -913,24 +800,12 @@ Clase Categoria: { id, nombre, descripcion } - sin FK directo
 Relación: { type: "ManyToMany", sourceClassId: "cls_producto", targetClassId: "cls_categoria", multiplicity: { "source": "*", "target": "*" } }
 NOTA: El sistema creará automáticamente la tabla producto_categoria`;
 
-        const claudeMessage = await this.anthropic.messages.create({
+        const generatedText = await this.cloud.generate({
           model: this.aiConfig.fastModel,
-          max_tokens: this.MaxTokens,
-          thinking: { type: 'disabled' },
-          messages: [
-            {
-              role: 'user',
-              content: `${systemPrompt}\n\nSolicitud del usuario: ${message}\n\nGenera el modelo UML completo basado en esta solicitud ${diagramContext ? 'y el contexto del diagrama existente' : ''}.`
-            }
-          ],
+          maxTokens: this.MaxTokens,
+          json: true,
+          prompt: `${systemPrompt}\n\nSolicitud del usuario: ${message}\n\nGenera el modelo UML completo basado en esta solicitud ${diagramContext ? 'y el contexto del diagrama existente' : ''}.`,
         });
-
-        if (!claudeMessage.content || claudeMessage.content.length === 0) {
-          throw new Error('Invalid response from Claude API');
-        }
-
-        const generatedText = claudeMessage.content[0].type === 'text' ? claudeMessage.content[0].text : '';
-        console.log('📝 Respuesta de Claude para diagrama:', generatedText.substring(0, 200));
 
         // Clean the response and extract JSON
         let cleanedResponse = generatedText.trim();
@@ -949,14 +824,18 @@ NOTA: El sistema creará automáticamente la tabla producto_categoria`;
         }
 
         let umlModel;
+        let usedFallback = false;
         try {
           umlModel = JSON.parse(cleanedResponse);
+          if (!Array.isArray(umlModel?.classes) || !Array.isArray(umlModel?.relations)) {
+            throw new Error('Invalid UML schema');
+          }
           console.log('✅ JSON parseado exitosamente. Clases:', umlModel.classes?.length);
         } catch (parseError) {
-          console.error('❌ Error parseando JSON de Claude:', parseError.message);
-          console.error('Respuesta limpia:', cleanedResponse.substring(0, 300));
+          console.error('❌ Error parseando JSON de IA:', parseError.message);
           // Fallback to a template model
           console.log('🔄 Usando modelo de fallback para:', message);
+          usedFallback = true;
           umlModel = this.generateFallbackModel(message);
         }
 
@@ -966,11 +845,11 @@ NOTA: El sistema creará automáticamente la tabla producto_categoria`;
         // Log the AI generation activity
         await this.prisma.diagramActivity.create({
           data: {
-            action: 'AI_GENERATION' as any,
+            action: (usedFallback ? 'AI_GENERATION_FALLBACK' : 'AI_GENERATION') as any,
             changes: {
               prompt: message,
               generatedModel: umlModel,
-              aiResponse: cleanedResponse,
+              ...(usedFallback ? { error: 'Invalid cloud UML response' } : { aiResponse: cleanedResponse }),
               hadContext: !!diagramContext,
             },
             userId,
@@ -980,7 +859,7 @@ NOTA: El sistema creará automáticamente la tabla producto_categoria`;
 
         // Return response with the generated model
         return {
-          response: `✨ ${umlModel.name}`,
+          response: `${usedFallback ? 'Plantilla local: ' : '✨ '}${umlModel.name}`,
           suggestions: [
             'Agregar más clases',
             'Modificar atributos',
@@ -988,9 +867,9 @@ NOTA: El sistema creará automáticamente la tabla producto_categoria`;
             'Generar otro sistema'
           ],
           model: umlModel, // Include the generated model in the response
-          mode: 'cloud',
-          provider: this.aiConfig.provider,
-          modelName: this.aiConfig.fastModel,
+          mode: usedFallback ? 'offline-fallback' : 'cloud',
+          provider: usedFallback ? 'local' : this.aiConfig.provider,
+          modelName: usedFallback ? undefined : this.aiConfig.fastModel,
         };
       } else {
         // Respuesta conversacional regular (sin generación de diagrama)
@@ -1004,23 +883,12 @@ Si el usuario pregunta sobre su diagrama, analiza el contexto actual.` : 'Sin co
 
 IMPORTANTE: Sé conciso pero informativo en tus respuestas.`;
 
-        const claudeMessage = await this.anthropic.messages.create({
+        const aiResponse = await this.cloud.generate({
           model: this.aiConfig.fastModel,
-          max_tokens: 2048,
-          thinking: { type: 'disabled' },
-          messages: [
-            {
-              role: 'user',
-              content: `${systemPrompt}\n\nMensaje del usuario: ${message}\n\nProporciona una respuesta útil y práctica.`
-            }
-          ],
+          maxTokens: 2048,
+          json: false,
+          prompt: `${systemPrompt}\n\nMensaje del usuario: ${message}\n\nProporciona una respuesta útil y práctica.`,
         });
-
-        if (!claudeMessage.content || claudeMessage.content.length === 0) {
-          throw new Error('Invalid response from Claude API');
-        }
-
-        const aiResponse = claudeMessage.content[0].type === 'text' ? claudeMessage.content[0].text : '';
 
         return {
           response: aiResponse,
@@ -1036,11 +904,14 @@ IMPORTANTE: Sé conciso pero informativo en tus respuestas.`;
         };
       }
     } catch (error) {
-      console.error('Error in AI chat with Claude:', error);
+      console.error('Error in cloud AI chat:', error instanceof Error ? error.message : 'Unknown error');
       return {
-        response: this.aiConfig.configured
-          ? `La IA en la nube está temporalmente no disponible. Aun así, puedo orientarte localmente sobre: "${message}".`
-          : `La IA en la nube no está configurada. Mientras agregas ANTHROPIC_API_KEY, puedo orientarte localmente sobre: "${message}".`,
+        response: this.aiConfig.provider === 'gemini' &&
+          error instanceof Error && error.message.includes('HTTP 403: PERMISSION_DENIED')
+          ? 'El proyecto de Google denegó acceso a Gemini. La respuesta de IA en la nube no se ejecutó; revisa el proyecto o usa otra clave con acceso.'
+          : this.aiConfig.configured
+            ? 'La IA en la nube está temporalmente no disponible. Puedes seguir con las funciones locales.'
+            : `La IA en la nube no está configurada. Agrega ${aiProviderKeyName(this.aiConfig.provider)} en el backend para activarla.`,
         suggestions: [
           'Crear un sistema de farmacia',
           'Diseñar un e-commerce',

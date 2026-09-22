@@ -1,10 +1,13 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { AuthorizationService } from '../authorization/authorization.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { mergeDiagram } from './diagram-three-way-merge';
+import { isDeepStrictEqual } from 'node:util';
 
 export type DiagramChange =
   | { type: 'full_update'; data: Record<string, unknown> }
@@ -28,6 +31,8 @@ export interface DiagramOperationAcknowledgement {
   sequence: number;
   version: number;
   conflictId?: string;
+  autoMerged?: boolean;
+  data?: Record<string, unknown>;
 }
 
 @Injectable()
@@ -43,9 +48,12 @@ export class CollaborationOperationService {
     this.validateInput(input);
     const accessibleDiagram = await this.prisma.diagram.findUnique({
       where: { id: input.diagramId },
-      select: { workspaceId: true },
+      select: { workspaceId: true, archivedAt: true },
     });
     if (!accessibleDiagram) throw new NotFoundException('Diagram not found');
+    if (accessibleDiagram.archivedAt) {
+      throw new BadRequestException('Archived diagrams cannot be edited');
+    }
     await this.authorization.require(
       accessibleDiagram.workspaceId,
       input.userId,
@@ -63,6 +71,14 @@ export class CollaborationOperationService {
         include: { conflict: { select: { id: true } } },
       });
       if (existing) {
+        if (existing.diagramId !== input.diagramId || existing.authorId !== input.userId) {
+          throw new BadRequestException('Device sequence already used for another operation');
+        }
+        const submittedData = input.changes.type === 'full_update' && 'data' in input.changes
+          ? input.changes.data : null;
+        const restoredData = this.asObject(existing.afterData);
+        const autoMerged = !existing.conflict?.id && submittedData &&
+          !isDeepStrictEqual(submittedData, restoredData);
         return {
           status: existing.conflict?.id ? 'CONFLICT' : 'DUPLICATE',
           operationId: existing.id,
@@ -71,6 +87,7 @@ export class CollaborationOperationService {
           ...(existing.conflict?.id
             ? { conflictId: existing.conflict.id }
             : {}),
+          ...(autoMerged ? { autoMerged: true, data: restoredData } : {}),
         };
       }
 
@@ -78,6 +95,9 @@ export class CollaborationOperationService {
         where: { id: input.diagramId },
       });
       if (!diagram) throw new NotFoundException('Diagram not found');
+      if (diagram.archivedAt) {
+        throw new BadRequestException('Archived diagrams cannot be edited');
+      }
 
       const sequenceState = await transaction.diagramOperation.aggregate({
         where: { diagramId: input.diagramId },
@@ -86,9 +106,58 @@ export class CollaborationOperationService {
       const serverSequence =
         (sequenceState._max.serverSequence ?? 0) + 1;
       const beforeData = this.asObject(diagram.data);
-      const proposedData = this.applyChange(beforeData, input.changes);
+      let proposedData = this.applyChange(beforeData, input.changes);
 
       if (input.baseVersion !== diagram.version) {
+        const baseline = await transaction.diagramOperation.findFirst({
+          where: {
+            diagramId: input.diagramId,
+            baseVersion: input.baseVersion,
+            status: 'APPLIED',
+          },
+          orderBy: { serverSequence: 'asc' },
+          select: { beforeData: true },
+        });
+        const trustedBase = baseline ? this.asObject(baseline.beforeData) : null;
+        if (trustedBase && input.baseData && isDeepStrictEqual(input.baseData, trustedBase)) {
+          proposedData = this.applyChange(trustedBase, input.changes);
+          const merged = mergeDiagram(trustedBase, proposedData, beforeData);
+          if (merged) {
+            const updated = await transaction.diagram.update({
+              where: { id: diagram.id },
+              data: { data: merged as any, version: { increment: 1 } },
+            });
+            const operation = await transaction.diagramOperation.create({
+              data: {
+                diagramId: input.diagramId,
+                authorId: input.userId,
+                deviceId: input.deviceId,
+                clientSequence: input.clientSequence,
+                serverSequence,
+                baseVersion: input.baseVersion,
+                resultVersion: updated.version,
+                operation: input.changes as any,
+                beforeData: beforeData as any,
+                afterData: merged as any,
+                status: 'APPLIED',
+              },
+            });
+            await transaction.auditEvent.create({
+              data: {
+                workspaceId: diagram.workspaceId,
+                actorId: input.userId,
+                action: 'DIAGRAM_OPERATION_APPLIED',
+                entityType: 'DiagramOperation',
+                entityId: operation.id,
+                metadata: { diagramId: diagram.id, serverSequence, autoMerged: true,
+                  baseVersion: input.baseVersion, resultVersion: updated.version },
+              },
+            });
+            return { status: 'APPLIED', operationId: operation.id,
+              sequence: serverSequence, version: updated.version,
+              autoMerged: true, data: merged };
+          }
+        }
         const operation = await transaction.diagramOperation.create({
           data: {
             diagramId: input.diagramId,
@@ -272,15 +341,28 @@ export class CollaborationOperationService {
         where: { id: conflict.diagramId },
       });
       if (!diagram) throw new NotFoundException('Diagram not found');
+      if (diagram.archivedAt) {
+        throw new BadRequestException('Archived diagrams cannot be edited');
+      }
+      const appliedResolution = mergeDiagram(
+        this.asObject(conflict.remoteData),
+        normalized,
+        this.asObject(diagram.data),
+      );
+      if (!appliedResolution) {
+        throw new ConflictException(
+          'Diagram changed after conflict creation; refresh before resolving',
+        );
+      }
       await transaction.diagram.update({
         where: { id: diagram.id },
-        data: { data: normalized as any, version: { increment: 1 } },
+        data: { data: appliedResolution as any, version: { increment: 1 } },
       });
       const resolved = await transaction.syncConflict.update({
         where: { id: conflict.id },
         data: {
           status: 'RESOLVED',
-          resolution: normalized as any,
+          resolution: appliedResolution as any,
           resolvedById: userId,
           resolvedAt: new Date(),
         },

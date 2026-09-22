@@ -100,6 +100,21 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
     socket.emit('diagram_change', envelope, (acknowledgement: any) => {
       saveInFlightRef.current = false;
       if (acknowledgement?.success) {
+        if (acknowledgement.autoMerged && acknowledgement.data) {
+          rememberServerSequence(localStorage, diagram.id, acknowledgement.sequence);
+          const queued = queuedSaveRef.current;
+          queuedSaveRef.current = null;
+          if (queued) {
+            // The queued full update was composed against the old snapshot.
+            // Send it as stale so the server merges or reports a conflict.
+            submitSaveRef.current?.(queued);
+          } else {
+            // A debounce timer may still hold newer edits. Keep the original
+            // baseline so any later save is merged safely by the server.
+            setSyncError('Los cambios se fusionaron. Actualiza el diagrama cuando termines de editar para ver el estado completo.');
+          }
+          return;
+        }
         confirmedVersionRef.current = acknowledgement.version;
         confirmedDataRef.current = data;
         rememberServerSequence(
@@ -592,13 +607,12 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
         // Apply changes from other users
         if (data.userId !== userId) {
           if (data.changes.type === 'full_update' && data.changes.data) {
-            confirmedDataRef.current = data.changes.data;
-            if (Number.isInteger(data.version)) {
-              confirmedVersionRef.current = data.version;
-            }
             if (Number.isInteger(data.sequence)) {
               rememberServerSequence(localStorage, diagram.id, data.sequence);
             }
+            // Keep the older baseline until the user refreshes or saves: a
+            // full update from this stale editor must go through server merge.
+            setSyncError('Hay cambios nuevos de otro participante. Actualiza el diagrama para verlos.');
             return;
           }
           if (data.changes.type === 'nodes') {
@@ -1103,20 +1117,10 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
       console.log('📊 Aplicando nodos:', newNodes.length, 'edges:', newEdges.length, 'intermediate tables:', intermediateTableNodes.length);
 
       // Update nodes and edges - IMPORTANT: Reemplazar completamente con lo generado por IA
-      let finalNodes: any[] = [];
-      let finalEdges: any[] = [];
-
-      setNodes(() => {
-        finalNodes = [...newNodes, ...intermediateTableNodes];
-        console.log('✅ Nodos totales después de IA (REPLACED):', finalNodes.length);
-        return finalNodes;
-      });
-
-      setEdges(() => {
-        finalEdges = [...newEdges];
-        console.log('✅ Edges totales después de IA (REPLACED):', finalEdges.length);
-        return finalEdges;
-      });
+      const finalNodes: any[] = [...newNodes, ...intermediateTableNodes];
+      const finalEdges: any[] = [...newEdges];
+      setNodes(finalNodes);
+      setEdges(finalEdges);
 
       // Wait a bit for state to update, then broadcast and save
       setTimeout(() => {
@@ -1136,7 +1140,21 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
         // Save to database
         console.log('💾 Intentando guardar diagrama en BD...');
         try {
-          handleSave();
+          submitDurableSave({
+            classes: finalNodes.map((node) => ({ ...node.data, position: node.position })),
+            relations: finalEdges.map((edge) => ({
+              id: edge.id,
+              sourceClassId: edge.source,
+              targetClassId: edge.target,
+              type: edge.data?.type || 'ASSOCIATION',
+              name: edge.data?.label || '',
+              multiplicity: edge.data?.multiplicity
+                ? `${edge.data.multiplicity.source || ''}:${edge.data.multiplicity.target || ''}`
+                : undefined,
+              intermediateTable: edge.data?.intermediateTable,
+            })),
+            metadata: { lastModified: new Date().toISOString(), modifiedBy: userId },
+          });
           console.log('✅ Diagrama guardado exitosamente en BD');
         } catch (saveError) {
           console.error('❌ Error al guardar diagrama:', saveError);
@@ -1148,7 +1166,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
       console.error('Stack:', (error as Error).stack);
       throw error; // Re-lanzar para que lo capture el catch del AIChatInterface
     }
-  }, [setNodes, setEdges, handleSave, socket, isConnected, emit, diagram.id, userId]);
+  }, [setNodes, setEdges, submitDurableSave, socket, isConnected, emit, diagram.id, userId]);
 
   return (
     <div className="h-full w-full flex">
@@ -1270,6 +1288,18 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
         <div className="w-80 border-l border-border bg-card flex-shrink-0">
           <AIChatInterface
             diagramId={diagram.id}
+            currentModel={{
+              classes: nodes.map((node) => ({ ...node.data, id: node.id, position: node.position })),
+              relations: edges.map((edge) => ({
+                id: edge.id,
+                sourceClassId: edge.source,
+                targetClassId: edge.target,
+                name: edge.data?.label || '',
+                type: edge.data?.type || 'ASSOCIATION',
+                multiplicity: edge.data?.multiplicity,
+                intermediateTable: edge.data?.intermediateTable,
+              })),
+            }}
             onUMLGenerated={handleUMLGenerated}
             onClose={() => setIsChatOpen(false)}
             isOpen={isChatOpen}

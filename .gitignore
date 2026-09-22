@@ -35,4 +35,5 @@ Thumbs.db
 # Document build intermediates
 docs/rendered/
 docs/tmp/
+tmp/pdfs/
 .superpowers/

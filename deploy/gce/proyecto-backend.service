@@ -1,0 +1,21 @@
+[Unit]
+Description=ProyectoSOFTWARE1 NestJS API
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=proyecto
+Group=proyecto
+WorkingDirectory=/opt/proyecto/current/backend
+EnvironmentFile=/etc/proyecto-software1/backend.env
+ExecStart=/usr/bin/node dist/main.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/proyecto-software1
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,6 @@
+REPLACE_DOMAIN {
+    encode zstd gzip
+    @backend path /api/* /socket.io /socket.io/*
+    reverse_proxy @backend 127.0.0.1:3002
+    reverse_proxy 127.0.0.1:3000
+}

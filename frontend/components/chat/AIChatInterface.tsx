@@ -5,6 +5,7 @@ import { Send, Bot, User, Sparkles, Loader2, X, Lightbulb, Image as ImageIcon } 
 import { aiAPI } from '@/lib/api';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import type { TranslationKey } from '@/lib/i18n/catalogs/en.ts';
+import { describeUmlProposal, selectUmlProposal, type UmlModel } from '@/lib/uml-proposal';
 
 interface ChatMessage {
   id: string;
@@ -19,6 +20,7 @@ interface ChatMessage {
 
 interface AIChatInterfaceProps {
   diagramId: string;
+  currentModel: UmlModel;
   onUMLGenerated?: (umlModel: any) => void | Promise<void>;
   onClose?: () => void;
   isOpen: boolean;
@@ -63,7 +65,7 @@ const templateTranslationKeys: Record<string, {
   },
 };
 
-export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, isOpen }: AIChatInterfaceProps) {
+export default function AIChatInterface({ diagramId, currentModel, onUMLGenerated, onClose, isOpen }: AIChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -72,6 +74,8 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [pendingModel, setPendingModel] = useState<any | null>(null);
+  const [selectedChanges, setSelectedChanges] = useState<string[]>([]);
+  const [proposalError, setProposalError] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
   const { locale, t } = useI18n();
 
@@ -204,6 +208,8 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
 
       if (chatResponse.model && onUMLGenerated) {
         setPendingModel(chatResponse.model);
+        setSelectedChanges(describeUmlProposal(currentModel, chatResponse.model).map((change) => change.id));
+        setProposalError(null);
       }
 
     } catch (error) {
@@ -222,11 +228,12 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
   };
 
   const applyPendingModel = async () => {
-    if (!pendingModel || !onUMLGenerated) return;
+    if (!pendingModel || !onUMLGenerated || selectedChanges.length === 0) return;
     setIsApplying(true);
     try {
-      await onUMLGenerated(pendingModel);
+      await onUMLGenerated(selectUmlProposal(currentModel, pendingModel, selectedChanges));
       setPendingModel(null);
+      setProposalError(null);
       setMessages((current) => [...current, {
         id: `${Date.now()}-applied`,
         type: 'ai',
@@ -234,6 +241,8 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
         translationKey: 'ai.diagramApplied',
         timestamp: new Date(),
       }]);
+    } catch (error) {
+      setProposalError(error instanceof Error ? error.message : t('ai.proposalError'));
     } finally {
       setIsApplying(false);
     }
@@ -348,11 +357,26 @@ export default function AIChatInterface({ diagramId, onUMLGenerated, onClose, is
                 relations: pendingModel.relations?.length || 0,
               })}
             </p>
+            <div className="mt-2 max-h-28 space-y-1 overflow-y-auto text-xs">
+              {describeUmlProposal(currentModel, pendingModel).map((change) => (
+                <label key={`${change.kind}:${change.id}`} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedChanges.includes(change.id)}
+                    onChange={() => setSelectedChanges((items) => items.includes(change.id)
+                      ? items.filter((id) => id !== change.id)
+                      : [...items, change.id])}
+                  />
+                  <span>{change.status === 'added' ? t('ai.changeAdded') : t('ai.changeModified')}: {change.name}</span>
+                </label>
+              ))}
+            </div>
+            {proposalError && <p role="alert" className="mt-1 text-xs text-red-700">{proposalError}</p>}
             <div className="mt-3 flex gap-2">
               <button
                 type="button"
                 onClick={() => void applyPendingModel()}
-                disabled={isApplying}
+                disabled={isApplying || selectedChanges.length === 0}
                 className="rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-50"
               >
                 {isApplying ? t('ai.thinking') : t('ai.applyProposal')}

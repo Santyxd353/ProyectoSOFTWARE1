@@ -59,7 +59,7 @@ class LocalAiEngine {
     if (_cloudScore(normalized) >= 2) {
       return const LocalAiResult(
         message:
-            'Esta solicitud requiere la IA avanzada. La enviaré a Claude cuando tengas conexión.',
+            'Esta solicitud requiere la IA avanzada. La enviaré al proveedor en la nube cuando tengas conexión.',
         engine: AiEngine.cloud,
         requiresCloud: true,
       );

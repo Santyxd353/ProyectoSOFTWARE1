@@ -127,6 +127,39 @@ describe('CollaborationGateway durable changes', () => {
     );
   });
 
+  it('broadcasts the merged server snapshot instead of the stale client update', async () => {
+    const merged = { classes: [{ id: 'remote' }, { id: 'local' }], relations: [] };
+    const emit = jest.fn();
+    const client: any = { id: 'socket-1', data: { user: { id: 'editor-1', name: 'Editor' } }, to: jest.fn(() => ({ emit })) };
+    const gateway = new (CollaborationGateway as any)(
+      { handleDisconnect: jest.fn() }, {}, {}, {}, {},
+      { apply: jest.fn().mockResolvedValue({ status: 'APPLIED', operationId: 'op-2', sequence: 2, version: 5, autoMerged: true, data: merged }) },
+    );
+    const result = await gateway.handleDiagramChange(client, {
+      diagramId: 'diagram-1', deviceId: 'browser-1', clientSequence: 2, baseVersion: 3,
+      changes: { type: 'full_update', data: { classes: [{ id: 'local' }], relations: [] } },
+    });
+    expect(result).toMatchObject({ autoMerged: true, data: merged });
+    expect(emit).toHaveBeenCalledWith('diagram_change', expect.objectContaining({
+      changes: { type: 'full_update', data: merged },
+    }));
+  });
+
+  it('acknowledges a duplicate without broadcasting the operation again', async () => {
+    const emit = jest.fn();
+    const client: any = { id: 'socket-1', data: { user: { id: 'editor-1', name: 'Editor' } }, to: jest.fn(() => ({ emit })) };
+    const gateway = new (CollaborationGateway as any)(
+      { handleDisconnect: jest.fn() }, {}, {}, {}, {},
+      { apply: jest.fn().mockResolvedValue({ status: 'DUPLICATE', operationId: 'op-1', sequence: 1, version: 4 }) },
+    );
+    const result = await gateway.handleDiagramChange(client, {
+      diagramId: 'diagram-1', deviceId: 'browser-1', clientSequence: 1, baseVersion: 3,
+      changes: { type: 'full_update', data: { classes: [], relations: [] } },
+    });
+    expect(result).toMatchObject({ success: true, status: 'DUPLICATE' });
+    expect(emit).not.toHaveBeenCalled();
+  });
+
   it('does not broadcast a conflicting operation', async () => {
     const operations = {
       apply: jest.fn().mockResolvedValue({

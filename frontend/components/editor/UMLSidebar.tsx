@@ -16,6 +16,7 @@ import {
   Lightbulb
 } from 'lucide-react';
 import { useI18n } from '@/components/i18n/I18nProvider';
+import { serializeUmlDragItem } from '@/lib/uml-drag-payload';
 
 interface UMLTemplate {
   id: string;
@@ -78,15 +79,8 @@ export default function UMLSidebar({ onAddElement }: { onAddElement: (element: a
   };
 
   const handleDragStart = (e: React.DragEvent, item: UMLTemplate) => {
-    // Create a new instance with unique ID for drag operation
-    const newItem = {
-      ...item,
-      data: {
-        ...item.data,
-        id: `class_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      }
-    };
-    e.dataTransfer.setData('application/json', JSON.stringify(newItem));
+    const classId = `class_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    e.dataTransfer.setData('application/json', serializeUmlDragItem(item, classId));
     e.dataTransfer.effectAllowed = 'copy';
   };
 

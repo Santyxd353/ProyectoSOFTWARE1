@@ -1,0 +1,20 @@
+[Unit]
+Description=ProyectoSOFTWARE1 Next.js frontend
+After=network-online.target proyecto-backend.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=proyecto
+Group=proyecto
+WorkingDirectory=/opt/proyecto/current/frontend
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start -p 3000 -H 127.0.0.1
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

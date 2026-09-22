@@ -1,4 +1,4 @@
-import { resolveAiProviderConfig } from './ai-provider.config';
+import { aiProviderKeyName, resolveAiProviderConfig } from './ai-provider.config';
 
 describe('resolveAiProviderConfig', () => {
   const configWith = (values: Record<string, string | undefined>) => ({
@@ -40,5 +40,64 @@ describe('resolveAiProviderConfig', () => {
     expect(result.configured).toBe(true);
     expect(result.mainModel).toBe('claude-sonnet-custom');
     expect(result.fastModel).toBe('claude-fast-custom');
+  });
+
+  it('uses Gemini only when selected and never substitutes an Anthropic key', () => {
+    const selected = resolveAiProviderConfig(configWith({
+      AI_PROVIDER: 'gemini',
+      GEMINI_API_KEY: 'gemini-test-key',
+      ANTHROPIC_API_KEY: 'anthropic-test-key',
+    }) as any);
+    const missing = resolveAiProviderConfig(configWith({
+      AI_PROVIDER: 'gemini',
+      ANTHROPIC_API_KEY: 'anthropic-test-key',
+    }) as any);
+
+    expect(selected).toEqual(expect.objectContaining({
+      provider: 'gemini',
+      configured: true,
+      apiKey: 'gemini-test-key',
+      keySource: 'GEMINI_API_KEY',
+      mainModel: 'gemini-3.8-flash',
+      fastModel: 'gemini-3.8-flash',
+    }));
+    expect(missing.configured).toBe(false);
+    expect(missing.apiKey).toBeNull();
+  });
+
+  it('uses Groq only when selected with Qwen defaults', () => {
+    const selected = resolveAiProviderConfig(configWith({
+      AI_PROVIDER: 'groq',
+      GROQ_API_KEY: 'groq-test-key',
+      GEMINI_API_KEY: 'gemini-test-key',
+    }) as any);
+    const missing = resolveAiProviderConfig(configWith({
+      AI_PROVIDER: 'groq',
+      GEMINI_API_KEY: 'gemini-test-key',
+    }) as any);
+
+    expect(selected).toEqual(expect.objectContaining({
+      provider: 'groq',
+      configured: true,
+      apiKey: 'groq-test-key',
+      keySource: 'GROQ_API_KEY',
+      mainModel: 'qwen/qwen3.8-27b',
+      fastModel: 'qwen/qwen3.8-27b',
+    }));
+    expect(missing.configured).toBe(false);
+    expect(missing.apiKey).toBeNull();
+  });
+
+  it('rejects an unknown explicit provider instead of silently using Anthropic', () => {
+    expect(() => resolveAiProviderConfig(configWith({
+      AI_PROVIDER: 'gemni',
+      ANTHROPIC_API_KEY: 'anthropic-test-key',
+    }) as any)).toThrow('Unsupported AI_PROVIDER');
+  });
+
+  it('reports the correct environment variable for every provider', () => {
+    expect(aiProviderKeyName('anthropic')).toBe('ANTHROPIC_API_KEY');
+    expect(aiProviderKeyName('gemini')).toBe('GEMINI_API_KEY');
+    expect(aiProviderKeyName('groq')).toBe('GROQ_API_KEY');
   });
 });

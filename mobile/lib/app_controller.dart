@@ -143,6 +143,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       if (pendingInvitationSecret != null) {
         await claimPortableInvitation(pendingInvitationSecret!);
       }
+      if (online && pendingOperations.isNotEmpty) {
+        await syncPending();
+      }
     });
   }
 
@@ -601,6 +604,10 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   void _handleRemoteDiagramEvent(Map<String, dynamic> event) {
     final diagram = activeDiagram;
     if (diagram == null) return;
+    if (pendingOperations.any((operation) =>
+        operation.entityId == diagram.id && operation.deviceId == event['deviceId'])) {
+      return;
+    }
     final changes = event['changes'] as Map?;
     final nextData = event['afterData'] as Map? ?? changes?['data'] as Map?;
     if (nextData == null) return;
@@ -719,7 +726,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       'classes': List<dynamic>.from(model['classes'] as List? ?? const []),
       'relations': List<dynamic>.from(model['relations'] as List? ?? const []),
       'metadata': {
-        'source': 'claude-mobile',
+        'source': 'cloud-mobile',
         'confirmedAt': DateTime.now().toIso8601String(),
       },
     };
@@ -833,7 +840,15 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _saveDiagram(Map<String, dynamic> data) async {
     final diagram = activeDiagram!;
-    final baseData = Map<String, dynamic>.from(diagram.data);
+    SyncOperation? oldestPending;
+    for (final pending in pendingOperations) {
+      if (pending.entityId == diagram.id) {
+        oldestPending = pending;
+        break;
+      }
+    }
+    final baseData = Map<String, dynamic>.from(oldestPending?.baseData ?? diagram.data);
+    final baseVersion = oldestPending?.baseVersion ?? diagram.version;
     final deviceId = await store.readOrCreateDeviceId();
     final clientSequence = await store.nextClientSequence();
     final operation = SyncOperation(
@@ -841,7 +856,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       entityId: diagram.id,
       deviceId: deviceId,
       clientSequence: clientSequence,
-      baseVersion: diagram.version,
+      baseVersion: baseVersion,
       baseData: baseData,
       payload: data,
     );
@@ -859,10 +874,12 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       if (diagram != null && diagram.id == applied.operation.entityId) {
         activeDiagram = diagram.copyWith(
           version: applied.response['version'] as int? ?? diagram.version,
+          data: applied.response['autoMerged'] == true && applied.response['data'] is Map
+              ? Map<String, dynamic>.from(applied.response['data'] as Map)
+              : diagram.data,
         );
         await store.saveJson('diagram:${diagram.id}', activeDiagram!.toJson());
       }
-      await realtime.publishConfirmed(applied.operation);
     }
     switch (syncCoordinator.status) {
       case SyncStatus.conflict:
