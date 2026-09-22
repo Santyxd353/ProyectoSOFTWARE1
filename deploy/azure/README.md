@@ -24,5 +24,10 @@ PostgreSQL 16, Node.js 22, Caddy y servicios systemd. Solo se exponen 22, 80 y
 6. Instalar las unidades systemd y `Caddyfile`, ejecutar migraciones y arrancar.
 7. Validar `/api/health`, autenticación, WebSocket, Groq y una operación UML.
 
+El script `bootstrap.sh` automatiza la instalación de la aplicación después de
+preparar la VM. Recibe el origen público como primer argumento y espera la clave
+Groq en `/tmp/backend.local.env`; elimina ese archivo tras crear el entorno
+privado del servicio.
+
 Antes de habilitar HTTPS se debe asignar un DNS a la IP pública. Reemplazar
 `REPLACE_DOMAIN` en las plantillas. La clave Groq nunca se almacena en Git.
