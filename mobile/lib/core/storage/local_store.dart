@@ -18,6 +18,11 @@ class LocalStore {
   static const _clientSequenceKey = 'client_sequence';
   static const _localeKey = 'locale';
   static const _themeModeKey = 'theme_mode';
+  static const defaultApiUrl = String.fromEnvironment(
+    'API_URL',
+    defaultValue: 'http://20.127.67.116/api',
+  );
+  static const _legacyEmulatorApiUrl = 'http://10.0.2.2:3002/api';
 
   Future<void> saveJson(String key, Map<String, dynamic> value) async {
     final preferences = await SharedPreferences.getInstance();
@@ -66,7 +71,11 @@ class LocalStore {
 
   Future<String> readApiUrl() async {
     final preferences = await SharedPreferences.getInstance();
-    return preferences.getString(_apiUrlKey) ?? 'http://10.0.2.2:3002/api';
+    final saved = preferences.getString(_apiUrlKey);
+    if (saved == null || saved == _legacyEmulatorApiUrl) {
+      return defaultApiUrl;
+    }
+    return saved;
   }
 
   Future<void> saveLocale(String value) async {

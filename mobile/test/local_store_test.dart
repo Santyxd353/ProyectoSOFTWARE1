@@ -46,4 +46,25 @@ void main() {
     expect(await store.readLocale(), 'en');
     expect(await store.readThemeMode(), 'dark');
   });
+
+  test('uses the deployed Azure API for a fresh installation', () async {
+    SharedPreferences.setMockInitialValues({});
+
+    expect(
+      await LocalStore().readApiUrl(),
+      'http://20.127.67.116/api',
+    );
+  });
+
+  test('migrates the former emulator default without replacing custom URLs', () async {
+    SharedPreferences.setMockInitialValues({
+      'api_url': 'http://10.0.2.2:3002/api',
+    });
+    expect(await LocalStore().readApiUrl(), 'http://20.127.67.116/api');
+
+    SharedPreferences.setMockInitialValues({
+      'api_url': 'http://custom.example/api',
+    });
+    expect(await LocalStore().readApiUrl(), 'http://custom.example/api');
+  });
 }

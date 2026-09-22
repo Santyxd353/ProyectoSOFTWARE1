@@ -79,12 +79,12 @@ Estado del alcance: los RF-01 a RF-32 y CU-01 a CU-25 tienen implementación loc
 - WebSocket real: JWT aceptado antes de eventos, unión a diagrama y reproducción de una operación persistida.
 - Backend: `npm test -- --runInBand --forceExit --silent` y `npm run build`.
 - Frontend: `npm test`, `npm run type-check` y `npm run build`.
-- Android: Flutter 3.35.7, `flutter analyze` sin observaciones, 78 pruebas Flutter y 2 recorridos de integración previos en emulador.
+- Android: Flutter 3.35.7, `flutter analyze` sin observaciones, 80 pruebas Flutter y 2 recorridos de integración contra Azure en emulador.
 - El recorrido CU-21..CU-25 usó dos usuarios autenticados, invitación temporal, edición versionada, generación Spring Boot/Flutter, revisión/comentario/comparación/ZIP y reimportación XMI.
 - `npm audit` informa 0 vulnerabilidades en las 804 dependencias del backend y 0 en las 550 del frontend.
 - La APK se compiló, instaló y permaneció activa en Android 15 API 35 sin excepciones fatales.
 - APK generado en `mobile/build/app/outputs/flutter-apk/app-debug.apk`.
-- Cierre de brechas del 22-09-2026: 158 pruebas de backend, 40 de frontend y 78 de Flutter pasan; compilaciones de backend, web y APK debug correctas. El PDF conserva 124 páginas, dos carátulas iguales y 132 anotaciones de navegación en el índice.
+- Cierre de brechas del 22-09-2026: 158 pruebas de backend, 40 de frontend y 80 de Flutter pasan; 2 recorridos Android contra Azure y compilaciones de backend, web y APK debug correctas. El PDF conserva 124 páginas, dos carátulas iguales y 132 anotaciones de navegación en el índice.
 - Azure: `deploy/azure/` incluye unidades systemd, Caddy, plantillas de entorno y runbook. La VM piloto Ubuntu 24.04 está creada; Groq fue validado localmente y la prueba en teléfono físico sigue pendiente. `deploy/gce/` se conserva como alternativa.
 
 La IA cloud selecciona Groq con `AI_PROVIDER=groq` y mantiene Gemini y Anthropic como alternativas. Chat, UML por texto/imagen y refinamiento usan el mismo adaptador. Groq/Qwen 3.8 respondió HTTP 200 para texto, JSON válido e imagen; la prueba con una imagen mínima inválida fue rechazada correctamente. Las claves Gemini suministradas autentican para listar modelos, pero Google responde `403 PERMISSION_DENIED` al generar. El contrato, redacción de secretos, validación de esquema, caducidad/autorización del token, ausencia de mutación durante propuesta, fallback identificado y trazabilidad tras confirmación están cubiertos por pruebas automatizadas.
