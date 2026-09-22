@@ -25,7 +25,7 @@ import RelationshipEditor from './RelationshipEditor';
 import UMLSidebar from './UMLSidebar';
 import UMLRelationshipEdge from './UMLRelationshipEdge';
 import AIChatInterface from '../chat/AIChatInterface';
-import { UMLClass, UMLRelation, Diagram } from '@/types/uml';
+import { UMLClass, Diagram } from '@/types/uml';
 import { useSocket } from '@/hooks/useSocket';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import {
@@ -35,6 +35,7 @@ import {
   nextClientSequence,
   rememberServerSequence,
 } from '@/lib/durable-collaboration';
+import { serializeDiagramData } from '@/lib/diagram-persistence';
 
 const nodeTypes = {
   umlClass: UMLClassNode,
@@ -49,7 +50,7 @@ interface UMLEditorProps {
   workspaceId: string;
   userId: string;
   userName: string;
-  onSave: (data: any) => void;
+  onSave: (data: any) => Promise<Diagram | void> | Diagram | void;
 }
 
 export default function UMLEditor({ diagram, workspaceId, userId, userName, onSave }: UMLEditorProps) {
@@ -139,29 +140,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
 
   // Handle save - defined early to be used by other functions
   const handleSave = useCallback(() => {
-    const diagramData = {
-      classes: nodes.map((node) => ({
-        ...node.data,
-        position: node.position, // Include position
-      } as UMLClass)),
-      relations: edges.map((edge) => ({
-        id: edge.id,
-        sourceClassId: edge.source,
-        targetClassId: edge.target,
-        type: edge.data?.type || 'ASSOCIATION',
-        name: edge.data?.label || '',
-        multiplicity: edge.data?.multiplicity ?
-          `${edge.data.multiplicity.source || ''}:${edge.data.multiplicity.target || ''}` :
-          undefined,
-        sourceHandle: edge.sourceHandle || undefined,
-        targetHandle: edge.targetHandle || undefined,
-        intermediateTable: edge.data?.intermediateTable || undefined, // AÑADIDO: Guardar tabla intermedia
-      } as UMLRelation)),
-      metadata: {
-        lastModified: new Date().toISOString(),
-        modifiedBy: userId,
-      },
-    };
+    const diagramData = serializeDiagramData(nodes, edges, userId);
 
     // Log intermediate tables being saved
     const intermediateTables = nodes.filter(n => n.data?.isIntermediateTable);
@@ -975,7 +954,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
   }, []);
 
   // Handle UML generation from AI
-  const handleUMLGenerated = useCallback((umlModel: any) => {
+  const handleUMLGenerated = useCallback(async (umlModel: any) => {
     try {
       console.log('🤖 IA generó modelo completo:', JSON.stringify(umlModel, null, 2));
 
@@ -1116,50 +1095,30 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
 
       console.log('📊 Aplicando nodos:', newNodes.length, 'edges:', newEdges.length, 'intermediate tables:', intermediateTableNodes.length);
 
-      // Update nodes and edges - IMPORTANT: Reemplazar completamente con lo generado por IA
-      const finalNodes: any[] = [...newNodes, ...intermediateTableNodes];
-      const finalEdges: any[] = [...newEdges];
+      // Reemplazar completamente el estado con el modelo generado.
+      const finalNodes = [...newNodes, ...intermediateTableNodes];
+      const finalEdges = [...newEdges];
       setNodes(finalNodes);
       setEdges(finalEdges);
+      console.log('✅ Nodos totales después de IA (REPLACED):', finalNodes.length);
 
-      // Wait a bit for state to update, then broadcast and save
-      setTimeout(() => {
-        // Broadcast to collaborators
-        if (socket && isConnected) {
-          emit('diagram_preview', {
-            diagramId: diagram.id,
-            changes: {
-              type: 'full_update',
-              nodes: finalNodes,
-              edges: finalEdges,
-            },
-          });
-          console.log('📡 Cambios enviados por WebSocket');
-        }
+      if (socket && isConnected) {
+        emit('diagram_preview', {
+          diagramId: diagram.id,
+          changes: {
+            type: 'full_update',
+            nodes: finalNodes,
+            edges: finalEdges,
+          },
+        });
+        console.log('📡 Cambios enviados por WebSocket');
+      }
 
-        // Save to database
-        console.log('💾 Intentando guardar diagrama en BD...');
-        try {
-          submitDurableSave({
-            classes: finalNodes.map((node) => ({ ...node.data, position: node.position })),
-            relations: finalEdges.map((edge) => ({
-              id: edge.id,
-              sourceClassId: edge.source,
-              targetClassId: edge.target,
-              type: edge.data?.type || 'ASSOCIATION',
-              name: edge.data?.label || '',
-              multiplicity: edge.data?.multiplicity
-                ? `${edge.data.multiplicity.source || ''}:${edge.data.multiplicity.target || ''}`
-                : undefined,
-              intermediateTable: edge.data?.intermediateTable,
-            })),
-            metadata: { lastModified: new Date().toISOString(), modifiedBy: userId },
-          });
-          console.log('✅ Diagrama guardado exitosamente en BD');
-        } catch (saveError) {
-          console.error('❌ Error al guardar diagrama:', saveError);
-        }
-      }, 500);
+      // Persistir los arreglos explícitos. No usar handleSave aquí: su cierre
+      // todavía contiene el estado anterior durante este mismo render.
+      const generatedData = serializeDiagramData(finalNodes, finalEdges, userId);
+      console.log('💾 Guardando modelo UML generado en BD...');
+      submitDurableSave(generatedData);
     } catch (error) {
       console.error('❌❌❌ ERROR EN handleUMLGenerated ❌❌❌');
       console.error('Error completo:', error);

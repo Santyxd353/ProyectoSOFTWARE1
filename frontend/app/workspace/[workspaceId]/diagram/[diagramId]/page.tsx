@@ -71,12 +71,15 @@ export default function DiagramPage({ params }: DiagramPageProps) {
         relationsCount: diagramData.relations?.length
       });
 
-      await diagramAPI.updateDiagram(diagram.id, diagramData);
+      const saved = await diagramAPI.updateDiagram(diagram.id, diagramData);
       console.log('✅ Diagrama guardado en BD exitosamente');
-
-      // NO actualizar el estado de diagram para evitar re-renderizados
-      // que disparen la reinicialización del editor
-      // El editor mantiene su propio estado (nodes/edges)
+      setDiagram((previous) => previous ? {
+        ...previous,
+        ...saved,
+        data: diagramData,
+      } : null);
+      setError(null);
+      return saved;
     } catch (error: any) {
       console.error('❌ Error guardando diagrama:', error);
       console.error('❌ Error detalles:', {

@@ -29,6 +29,34 @@ test('creates one stable browser device identifier', () => {
   assert.equal(second, first);
 });
 
+test('creates a browser device identifier when randomUUID is unavailable on HTTP', () => {
+  const storage = memoryStorage();
+  const cryptoDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+
+  try {
+    Object.defineProperty(globalThis, 'crypto', {
+      configurable: true,
+      value: {
+        getRandomValues(values) {
+          values.fill(7);
+          return values;
+        },
+      },
+    });
+
+    const deviceId = collaboration.getOrCreateDeviceId?.(storage);
+
+    assert.match(deviceId, /^browser-[0-9a-f-]{36}$/);
+    assert.equal(collaboration.getOrCreateDeviceId?.(storage), deviceId);
+  } finally {
+    if (cryptoDescriptor) {
+      Object.defineProperty(globalThis, 'crypto', cryptoDescriptor);
+    } else {
+      delete globalThis.crypto;
+    }
+  }
+});
+
 test('allocates monotonic client sequences that survive recreation', () => {
   const storage = memoryStorage();
 
